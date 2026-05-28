@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "prompt-optimizer": {
+      "source": "daymade/claude-code-skills",
+      "sourceType": "github",
+      "skillPath": "prompt-optimizer/SKILL.md",
+      "computedHash": "04de3f8e897d3907b0c9ffd0b1fda43249d27d7ffe4d96e721ae7aa8b87a0fd8"
+    }
+  }
+}
