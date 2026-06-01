@@ -12,7 +12,7 @@
 #ifndef __DELAY_H
 #define __DELAY_H
 
-#include "sys.h"
+#include "sys_util.h"
 
 void delay_init(uint16_t sysclk);
 void delay_ms(uint16_t nms);

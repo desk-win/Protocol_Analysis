@@ -1,20 +1,9 @@
-/**
- * SDRAM 驱动 — W9825G6KH 32MB SDRAM 初始化与读写
- * ===============================================
- * 初始化:      sdram_init()                   CAS=2, SDCLK=110MHz (FMC=220MHz/2)
- * 写缓冲:      fmc_sdram_write_buffer(buf, addr, len)
- * 读缓冲:      fmc_sdram_read_buffer(buf, addr, len)
- * SDRAM 基址:  BANK6_SDRAM_ADDR = 0xD0000000
- * 全局句柄:    g_sdram_handle (SDRAM_HandleTypeDef)
- *
- * 注意: 必须在 MPU 配置为 SDRAM cacheable 之后再调用 sdram_init()
- */
-#ifndef _SDRAM_H
-#define _SDRAM_H
+#ifndef __SDRAM_UTIL_H
+#define __SDRAM_UTIL_H
 
-#include "sys.h"
+#include "sys_util.h"
 
-extern SDRAM_HandleTypeDef g_sdram_handle;
+extern SDRAM_HandleTypeDef hsdram2;
 
 #define BANK6_SDRAM_ADDR    ((uint32_t)(0XD0000000))
 
@@ -30,8 +19,6 @@ extern SDRAM_HandleTypeDef g_sdram_handle;
 #define SDRAM_MODEREG_WRITEBURST_MODE_PROGRAMMED ((uint16_t)0x0000)
 #define SDRAM_MODEREG_WRITEBURST_MODE_SINGLE     ((uint16_t)0x0200)
 
-void sdram_init(void);
-void sdram_initialization_sequence(void);
 uint8_t sdram_send_cmd(uint8_t bankx, uint8_t cmd, uint8_t refresh, uint16_t regval);
 void fmc_sdram_write_buffer(uint8_t *pbuf, uint32_t writeaddr, uint32_t n);
 void fmc_sdram_read_buffer(uint8_t *pbuf, uint32_t readaddr, uint32_t n);

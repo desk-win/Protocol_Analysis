@@ -2,6 +2,7 @@
 #include "lcd.h"
 #include "lcdfont.h"
 #include "delay.h"
+#include "ltdc_draw.h"
 #include "ltdc.h"
 #include "stdio.h"
 

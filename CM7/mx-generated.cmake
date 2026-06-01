@@ -28,6 +28,8 @@ set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/gpio.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/dma.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/dma2d.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/fmc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/ltdc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/freertos.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/i2c.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/tim.c

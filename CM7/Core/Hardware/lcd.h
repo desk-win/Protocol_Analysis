@@ -19,8 +19,8 @@
 #define __LCD_H
 
 #include "stdlib.h"
-#include "sys.h"
-#include "ltdc.h"
+#include "sys_util.h"
+#include "ltdc_draw.h"
 
 /* LCD_PWREN: PI11 controls LCD_5V power */
 #define LCD_PWREN_GPIO_PORT               GPIOI

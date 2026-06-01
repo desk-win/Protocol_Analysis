@@ -14,7 +14,7 @@
 #ifndef __TFT_SPI_H
 #define __TFT_SPI_H
 
-#include "sys.h"
+#include "sys_util.h"
 
 /* TFT_SPI pin definitions
  * TFT_SPI_CS  --> PB13 (TP_MISO)

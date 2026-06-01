@@ -8,10 +8,11 @@
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
-#include "sys.h"
+#include "sys_util.h"
 #include "delay.h"
-#include "mpu.h"
-#include "sdram.h"
+#include "mpu_util.h"
+#include "fmc.h"
+#include "sdram_util.h"
 #include "lcd.h"
 
 /* Private typedef -----------------------------------------------------------*/

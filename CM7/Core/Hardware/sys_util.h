@@ -1,15 +1,5 @@
-/**
- * 系统初始化 — Cache 使能、时钟树配置
- * ===================================
- * 初始化时钟:   sys_stm32_clock_init(192, 5, 2, 4)   HSE 25MHz → PLL1 480MHz, SYSCLK=480, HCLK=240
- * 使能 Cache:   sys_cache_enable()                    I-Cache + D-Cache (强制 write-through)
- * 中断控制:     sys_intx_disable() / sys_intx_enable()
- * 低功耗:       sys_wfi_set()
- *
- * SYS_SUPPORT_OS = 0  表示 delay 模块不依赖 RTOS (FreeRTOS 通过 CMSIS-OS2 另行管理)
- */
-#ifndef __SYS_H
-#define __SYS_H
+#ifndef __SYS_UTIL_H
+#define __SYS_UTIL_H
 
 #include "stm32h7xx_hal.h"
 #include "core_cm7.h"

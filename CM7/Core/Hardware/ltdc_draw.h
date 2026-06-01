@@ -1,21 +1,7 @@
-/**
- * LTDC 驱动层 — 面板时序、时钟配置、DMA2D 硬件填充
- * =================================================
- * 面板识别:   ltdc_panelid_read()            返回面板 ID (0X4384 = 4.3" 800x480)
- * 初始化:     ltdc_init()                    自动识别面板→设置时序→配置图层
- * 配置时钟:   ltdc_clk_set(pll3n, pll3m, pll3r)   例: ltdc_clk_set(300, 25, 9) → 33.33MHz
- * 图层开关:   ltdc_layer_switch(layer, sw)
- * 硬件填充:   ltdc_fill(sx, sy, ex, ey, color)    使用 DMA2D, 比 lcd_fill 更快
- * 画点:       ltdc_draw_point(x, y, color)
- * 帧缓冲:     ltdc_layer_parameter_config()  设置 framebuffer 地址/格式/alpha
- * 像素格式:   LTDC_PIXFORMAT (当前为 LTDC_PIXFORMAT_RGB565)
- * 帧缓冲地址: LTDC_FRAME_BUF_ADDR = 0xD0000000 (SDRAM)
- * 全局句柄:   g_ltdc_handle (LTDC_HandleTypeDef) / g_dma2d_handle (DMA2D_HandleTypeDef)
- */
-#ifndef __LTDC_H
-#define __LTDC_H
+#ifndef __LTDC_DRAW_H
+#define __LTDC_DRAW_H
 
-#include "sys.h"
+#include "sys_util.h"
 
 #define RGB_80_8001280       0
 
@@ -38,8 +24,8 @@ typedef struct
 }_ltdc_dev;
 
 extern _ltdc_dev lcdltdc;
-extern LTDC_HandleTypeDef g_ltdc_handle;
-extern DMA2D_HandleTypeDef g_dma2d_handle;
+extern uint32_t *g_ltdc_framebuf[2];
+extern LTDC_HandleTypeDef hltdc;
 
 #define LTDC_PIXFORMAT_ARGB8888      0X00
 #define LTDC_PIXFORMAT_RGB888        0X01
@@ -89,6 +75,7 @@ extern DMA2D_HandleTypeDef g_dma2d_handle;
                             HAL_GPIO_WritePin(LTDC_RST_GPIO_PORT, LTDC_RST_GPIO_PIN, GPIO_PIN_RESET); \
                         }while(0)
 
+/* Drawing functions (DMA2D-accelerated) */
 void ltdc_switch(uint8_t sw);
 void ltdc_layer_switch(uint8_t layerx, uint8_t sw);
 void ltdc_select_layer(uint8_t layerx);
@@ -98,10 +85,5 @@ uint32_t ltdc_read_point(uint16_t x, uint16_t y);
 void ltdc_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint32_t color);
 void ltdc_color_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint16_t *color);
 void ltdc_clear(uint32_t color);
-uint8_t ltdc_clk_set(uint32_t pll3n, uint32_t pll3m, uint32_t pll3r);
-void ltdc_layer_window_config(uint8_t layerx, uint16_t sx, uint16_t sy, uint16_t width, uint16_t height);
-void ltdc_layer_parameter_config(uint8_t layerx, uint32_t bufaddr, uint8_t pixformat, uint8_t alpha, uint8_t alpha0, uint8_t bfac1, uint8_t bfac2, uint32_t bkcolor);
-uint16_t ltdc_panelid_read(void);
-void ltdc_init(void);
 
 #endif

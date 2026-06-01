@@ -63,11 +63,11 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-    Core/Hardware/sys.c
+    Core/Hardware/sys_util.c
     Core/Hardware/delay.c
-    Core/Hardware/mpu.c
-    Core/Hardware/sdram.c
-    Core/Hardware/ltdc.c
+    Core/Hardware/mpu_util.c
+    Core/Hardware/sdram_util.c
+    Core/Hardware/ltdc_draw.c
     Core/Hardware/tft_spi.c
     Core/Hardware/lcd.c
 )
