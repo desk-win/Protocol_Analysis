@@ -46,6 +46,13 @@ include("mx-generated.cmake")
 # Add touchgfx generated sources and libraries
 add_subdirectory(cmake/touchgfx)
 
+# TouchGFX Designer always generates USE_BPP=24 but our LTDC is RGB565 (16bpp).
+# Override it here — this runs AFTER the Designer's cmake file, so our value wins.
+get_target_property(_tgx_defs stm32cubemx INTERFACE_COMPILE_DEFINITIONS)
+list(REMOVE_ITEM _tgx_defs "USE_BPP=24")
+list(APPEND _tgx_defs "USE_BPP=16")
+set_target_properties(stm32cubemx PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${_tgx_defs}")
+
 
 # In order to use CMake for cross-compiling
 set(CMAKE_CXX_COMPILER_FORCED "true")

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 
 # TouchGFX generated symbols
 set(TouchGFX_Defines_Syms
-    USE_BPP=16
+    USE_BPP=24
 )
 
 # TouchGFX generated include paths

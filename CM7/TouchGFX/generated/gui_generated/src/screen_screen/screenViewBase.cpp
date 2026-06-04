@@ -11,7 +11,7 @@ screenViewBase::screenViewBase()
     add(__background);
 
     box1.setPosition(207, 107, 242, 373);
-    box1.setColor(touchgfx::Color::getColorFromRGB(212, 42, 42));
+    box1.setColor(touchgfx::Color::getColorFromRGB(252, 167, 167));
     add(box1);
 
     box2.setPosition(0, 0, 207, 107);
@@ -27,11 +27,11 @@ screenViewBase::screenViewBase()
     add(box4);
 
     box5.setPosition(449, 0, 196, 480);
-    box5.setColor(touchgfx::Color::getColorFromRGB(235, 195, 66));
+    box5.setColor(touchgfx::Color::getColorFromRGB(204, 157, 16));
     add(box5);
 
     box6.setPosition(645, 0, 155, 480);
-    box6.setColor(touchgfx::Color::getColorFromRGB(41, 80, 135));
+    box6.setColor(touchgfx::Color::getColorFromRGB(136, 177, 235));
     add(box6);
 }
 

@@ -12,9 +12,9 @@
             "Width": 242,
             "Height": 373,
             "Color": {
-              "Red": 212,
-              "Green": 42,
-              "Blue": 42
+              "Red": 252,
+              "Green": 167,
+              "Blue": 167
             }
           },
           {
@@ -59,9 +59,9 @@
             "Width": 196,
             "Height": 480,
             "Color": {
-              "Red": 235,
-              "Green": 195,
-              "Blue": 66
+              "Red": 204,
+              "Green": 157,
+              "Blue": 16
             }
           },
           {
@@ -71,9 +71,9 @@
             "Width": 155,
             "Height": 480,
             "Color": {
-              "Red": 41,
-              "Green": 80,
-              "Blue": 135
+              "Red": 136,
+              "Green": 177,
+              "Blue": 235
             }
           }
         ],
@@ -95,6 +95,7 @@
       24
     ],
     "AvailableLCDs": {
+      "16": "LCD16bpp",
       "24": "LCD24bpp"
     },
     "AvailableSections": [
