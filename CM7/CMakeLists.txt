@@ -106,6 +106,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 
 # TouchGFX library linking is handled by cmake/touchgfx/CMakeLists.txt
 
+# CRC HAL driver sources — CubeMX may not add these to mx-generated.cmake
+# when CRC is added after initial generation. Keep them here permanently.
+target_sources(STM32_Drivers PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc_ex.c
+)
+
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
