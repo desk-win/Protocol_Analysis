@@ -5,6 +5,7 @@
 #include "dma2d.h"
 #include "i2c.h"
 #include "tim.h"
+#include "crc.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -34,6 +35,11 @@ int main(void)
   sys_cache_enable();                     /* Enable L1-Cache (with forced write-through) */
 
   HAL_Init();                             /* Init HAL */
+  SCB->CCR &= ~SCB_CCR_UNALIGN_TRP_Msk;   /* Allow unaligned access —
+                                              STM32H7 SystemInit may set UNALIGN_TRP,
+                                              but TouchGFX framebuffer ops can produce
+                                              non-word-aligned addresses (e.g. RGB565
+                                              at odd pixel columns). */
   sys_stm32_clock_init(192, 5, 2, 4);     /* HSE 25MHz → PLL1 480MHz, PLL2R 220MHz→FMC */
   delay_init(480);                        /* SysTick-based delay init */
 
@@ -44,6 +50,7 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C2_Init();
   MX_TIM3_Init();
+  MX_CRC_Init();
   MX_DMA2D_Init();
 
   mpu_memory_protection();                /* MPU: SDRAM cacheable, FMC non-cacheable, etc. */

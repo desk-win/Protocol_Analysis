@@ -173,12 +173,15 @@ void MX_LTDC_Init(void)
 
 #if LTDC_PIXFORMAT == LTDC_PIXFORMAT_ARGB8888
     g_ltdc_framebuf[0] = (uint32_t *)LTDC_FRAME_BUF_ADDR;
+    g_ltdc_framebuf[1] = (uint32_t *)LTDC_FRAME_BUF_LAYER1_ADDR;
     lcdltdc.pixsize = 4;
 #elif LTDC_PIXFORMAT == LTDC_PIXFORMAT_RGB888
     g_ltdc_framebuf[0] = (uint32_t *)LTDC_FRAME_BUF_ADDR;
+    g_ltdc_framebuf[1] = (uint32_t *)LTDC_FRAME_BUF_LAYER1_ADDR;
     lcdltdc.pixsize = 3;
 #else
     g_ltdc_framebuf[0] = (uint32_t *)LTDC_FRAME_BUF_ADDR;
+    g_ltdc_framebuf[1] = (uint32_t *)LTDC_FRAME_BUF_LAYER1_ADDR;
     lcdltdc.pixsize = 2;
 #endif
 
@@ -212,9 +215,14 @@ void MX_LTDC_Init(void)
     hltdc.Init.Backcolor.Blue = 0;
     HAL_LTDC_Init(&hltdc);
 
-    /* Layer config */
+    /* Layer 0 config — background */
     ltdc_layer_parameter_config(0, (uint32_t)g_ltdc_framebuf[0], LTDC_PIXFORMAT, 255, 0, 6, 7, 0X000000);
     ltdc_layer_window_config(0, 0, 0, lcdltdc.pwidth, lcdltdc.pheight);
+
+    /* Layer 1 config — foreground (reserved for TouchGFX) */
+    ltdc_layer_parameter_config(1, (uint32_t)g_ltdc_framebuf[1], LTDC_PIXFORMAT, 255, 0, 6, 7, 0X000000);
+    ltdc_layer_window_config(1, 0, 0, lcdltdc.pwidth, lcdltdc.pheight);
+    ltdc_layer_switch(1, 0);  /* Disable Layer 1 for now — bare-metal uses Layer 0 only */
 
     ltdc_display_dir(1);
     ltdc_select_layer(0);

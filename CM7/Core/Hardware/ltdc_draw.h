@@ -3,6 +3,10 @@
 
 #include "sys_util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RGB_80_8001280       0
 
 typedef struct
@@ -63,7 +67,8 @@ extern LTDC_HandleTypeDef hltdc;
 
 #define LTDC_PIXFORMAT           LTDC_PIXFORMAT_RGB565
 #define LTDC_BACKLAYERCOLOR      0X00000000
-#define LTDC_FRAME_BUF_ADDR      0XD0000000
+#define LTDC_FRAME_BUF_ADDR             0XD0000000
+#define LTDC_FRAME_BUF_LAYER1_ADDR      (0XD0000000 + 0x100000)  /* Layer 1 at +1MB offset */
 
 #define LTDC_BL(x)      do{ x ? \
                             HAL_GPIO_WritePin(LTDC_BL_GPIO_PORT, LTDC_BL_GPIO_PIN, GPIO_PIN_SET) : \
@@ -85,5 +90,14 @@ uint32_t ltdc_read_point(uint16_t x, uint16_t y);
 void ltdc_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint32_t color);
 void ltdc_color_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint16_t *color);
 void ltdc_clear(uint32_t color);
+
+/* DMA2D mutual exclusion — shared between bare-metal and TouchGFX */
+void dma2d_lock(void);
+void dma2d_unlock(void);
+void dma2d_unlock_all(void);   /* full release — called at end of paint batch */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

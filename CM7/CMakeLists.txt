@@ -12,6 +12,10 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 # Define the build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
@@ -39,6 +43,9 @@ add_executable(${CMAKE_PROJECT_NAME})
 # Include mx-generated
 include("mx-generated.cmake")
 
+# Add touchgfx generated sources and libraries
+add_subdirectory(cmake/touchgfx)
+
 
 # In order to use CMake for cross-compiling
 set(CMAKE_CXX_COMPILER_FORCED "true")
@@ -48,8 +55,8 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
 )
 
-# Enable CMake support for ASM and C languages
-enable_language(C ASM)
+# Enable CMake support for ASM, C, and C++ languages
+enable_language(C CXX ASM)
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
@@ -58,6 +65,18 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Hardware
     Drivers/STM32H7xx_HAL_Driver/Inc
     Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
+    # TouchGFX project includes
+    TouchGFX/App
+    TouchGFX/target
+    TouchGFX/target/generated
+    TouchGFX/generated/gui_generated/include
+    TouchGFX/generated/images/include
+    TouchGFX/generated/texts/include
+    TouchGFX/generated/fonts/include
+    TouchGFX/generated/videos/include
+    TouchGFX/gui/include
+    # TouchGFX SDK framework includes
+    E:/TouchGFX/4.26.1/touchgfx/framework/include
 )
 
 # Add sources to executable
@@ -70,17 +89,22 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Hardware/ltdc_draw.c
     Core/Hardware/tft_spi.c
     Core/Hardware/lcd.c
+    Core/Src/crc.c
+    # TouchGFX HAL callbacks (C++ bridge from LTDC ISR to OSWrappers)
+    Core/Src/touchgfx_callbacks.cpp
+    # TouchGFX target HAL (C++) — these are user-editable, NOT in cmake/touchgfx
+    TouchGFX/target/generated/STM32DMA.cpp
+    TouchGFX/target/generated/TouchGFXConfiguration.cpp
+    TouchGFX/target/generated/TouchGFXGeneratedHAL.cpp
+    TouchGFX/target/generated/OSWrappers.cpp
+    TouchGFX/target/TouchGFXHAL.cpp
+    TouchGFX/target/STM32TouchController.cpp
+    TouchGFX/target/TouchGFXGPIO.cpp
+    # TouchGFX app entry (C)
+    TouchGFX/App/app_touchgfx.c
 )
 
-# Link directories setup
-target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined library search paths
-)
-
-# Add linked libraries
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined libraries
-)
+# TouchGFX library linking is handled by cmake/touchgfx/CMakeLists.txt
 
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)

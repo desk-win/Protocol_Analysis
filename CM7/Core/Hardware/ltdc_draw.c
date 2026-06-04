@@ -3,6 +3,60 @@
 uint32_t *g_ltdc_framebuf[2];
 _ltdc_dev lcdltdc;
 
+/* ── DMA2D mutual exclusion (atomic, reentrant) ─────────────────────────────
+ * Shared between bare-metal (polling) and TouchGFX (interrupt-driven queue +
+ * paint functions).  Uses ARMv7-M LDREX/STREX to guarantee exactly one owner.
+ *
+ * REENTRANCY: TouchGFX paint functions (rgb565/rgb888 lineFrom*) call
+ * dma2d_lock() once per line.  A 240-line draw would deadlock with a plain
+ * spinlock.  We track nesting depth so that calls from the same owner are
+ * no-ops after the first one.  dma2d_unlock_all() (called by tearDown())
+ * resets the nesting counter and releases the underlying lock.
+ *
+ * IMPORTANT: Do NOT call dma2d_lock() from an ISR while the bare-metal task
+ * holds the lock — the ISR will spin forever.  TouchGFX DMA2D ISR only
+ * calls dma2d_unlock(), never lock.  bare-metal DMA2D calls are all polling
+ * (no ISR), so this design is deadlock-free.
+ */
+static volatile uint32_t dma2d_locked = 0;
+static uint32_t dma2d_nesting = 0;  /* not volatile — only accessed while locked */
+
+void dma2d_lock(void)
+{
+    if (dma2d_nesting > 0) {
+        /* Already own the lock — just bump the nesting counter */
+        dma2d_nesting++;
+        return;
+    }
+
+    uint32_t status;
+    do {
+        while (__LDREXW(&dma2d_locked) != 0) {}
+        status = __STREXW(1, &dma2d_locked);
+    } while (status != 0);
+    __DMB();
+    dma2d_nesting = 1;
+}
+
+void dma2d_unlock(void)
+{
+    if (dma2d_nesting > 1) {
+        dma2d_nesting--;
+        return;
+    }
+    dma2d_nesting = 0;
+    __DMB();
+    dma2d_locked = 0;
+}
+
+/* Full unlock — called by tearDown() to release ALL nested acquisitions */
+void dma2d_unlock_all(void)
+{
+    dma2d_nesting = 0;
+    __DMB();
+    dma2d_locked = 0;
+}
+
 void ltdc_switch(uint8_t sw)
 {
     if (sw)
@@ -112,7 +166,7 @@ void ltdc_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint32_t colo
 
     __HAL_RCC_DMA2D_CLK_ENABLE();
 
-    DMA2D->CR &= ~(DMA2D_CR_START);
+    dma2d_lock();
     DMA2D->CR = DMA2D_R2M;
     DMA2D->OPFCCR = LTDC_PIXFORMAT;
     DMA2D->OOR = offline;
@@ -128,6 +182,7 @@ void ltdc_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint32_t colo
     }
 
     DMA2D->IFCR |= DMA2D_FLAG_TC;
+    dma2d_unlock();
 }
 
 void ltdc_color_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint16_t *color)
@@ -152,7 +207,7 @@ void ltdc_color_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint16_
 
     __HAL_RCC_DMA2D_CLK_ENABLE();
 
-    DMA2D->CR &= ~(DMA2D_CR_START);
+    dma2d_lock();
     DMA2D->CR = DMA2D_M2M;
     DMA2D->FGPFCCR = LTDC_PIXFORMAT;
     DMA2D->FGOR = 0;
@@ -169,6 +224,7 @@ void ltdc_color_fill(uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey, uint16_
     }
 
     DMA2D->IFCR |= DMA2D_FLAG_TC;
+    dma2d_unlock();
 }
 
 void ltdc_clear(uint32_t color)
