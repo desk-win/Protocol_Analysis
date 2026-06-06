@@ -1124,6 +1124,18 @@ void lineFromL8ARGB8888(uint16_t* const ptr, const uint8_t* const data, const un
     WRITE_REG(DMA2D->CR, DMA2D_M2M_BLEND | DMA2D_CR_START);
 }
 
+/**
+ * @fn void lineFromColor(uint16_t*, unsigned, uint32_t, uint8_t, uint32_t);
+ *
+ * @brief 5-param overload required by libtouchgfx PainterRGB565 (v4.26.1).
+ *        The extra color565 param is pre-converted but unused here —
+ *        DMA2D handles the color conversion in hardware.
+ */
+void lineFromColor(uint16_t* const ptr, const unsigned count, const uint32_t color, const uint8_t alpha, const uint32_t /*color565*/)
+{
+    lineFromColor(ptr, count, color, alpha);
+}
+
 } // namespace rgb565
 } // namespace paint
 } // namespace touchgfx

@@ -45,13 +45,13 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-/* TouchGFX task handle and attributes — 48KB stack for software rendering */
+/* TouchGFX task: static allocation with stack in AXI SRAM.
+ * 48KB stack is placed in AXI SRAM via xTaskCreateStatic to avoid
+ * consuming DTCM and to sidestep SDRAM bus contention issues. */
+#define TOUCHGFX_STACK_WORDS  12288  /* 48 KB */
+static StaticTask_t touchgfxTCB;
+__attribute__((section(".axi_stack"))) static StackType_t touchgfxStack[TOUCHGFX_STACK_WORDS];
 osThreadId_t touchgfxTaskHandle;
-const osThreadAttr_t touchgfxTask_attributes = {
-  .name = "TouchGFX",
-  .stack_size = 12288 * 4,  /* 48 KB */
-  .priority = (osPriority_t) osPriorityAboveNormal,
-};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -86,8 +86,15 @@ void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer, StackTyp
   */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
-  /* Create TouchGFX task (higher priority than default) */
-  touchgfxTaskHandle = osThreadNew(StartTouchGFXTask, NULL, &touchgfxTask_attributes);
+  /* Create TouchGFX task with STATIC allocation (stack in AXI SRAM) */
+  touchgfxTaskHandle = xTaskCreateStatic(
+      StartTouchGFXTask,
+      "TouchGFX",
+      TOUCHGFX_STACK_WORDS,
+      NULL,
+      osPriorityAboveNormal,
+      touchgfxStack,
+      &touchgfxTCB);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_QUEUES */

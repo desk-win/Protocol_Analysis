@@ -41,6 +41,7 @@ MEMORY
 FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 1024K
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K
 ITCMRAM (xrw)      : ORIGIN = 0x00000000, LENGTH = 64K
+AXI_SRAM (xrw)      : ORIGIN = 0x24000000, LENGTH = 512K
 }
 /* Highest address of the user mode stack */
 _estack = 0x20020000;    /* end of RAM */
@@ -231,6 +232,16 @@ SECTIONS
   } >RAM
 
   
+
+  /* TouchGFX task stack in AXI SRAM */
+  .axi_stack (NOLOAD) :
+  {
+    . = ALIGN(8);
+    __axi_stack_start = .;
+    KEEP(*(.axi_stack))
+    . = ALIGN(8);
+    __axi_stack_end = .;
+  } >AXI_SRAM
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
