@@ -3,10 +3,10 @@
   "Application": {
     "Name": "qiansai",
     "TouchGfxPath": "../Middlewares/ST/touchgfx",
-    "AvailableColorDepths": [ 24 ],
+    "AvailableColorDepths": [ 16 ],
     "AvailableLCDs":
     {
-      "24": "LCD24bpp"
+      "16": "LCD16bpp"
     },
     "AvailableResolutions": [
       {

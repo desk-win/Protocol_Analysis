@@ -35,20 +35,13 @@ using namespace touchgfx;
  */
 void OSWrappers::initialize()
 {
-    volatile uint32_t *mk = (volatile uint32_t *)0xD0000328U;
-    mk[0] = 0xDD000001;  /* OSWrappers init started */
-
     // Create a queue of length 1
     frame_buffer_sem = osSemaphoreNew(1, 1, NULL); // Binary semaphore
     assert((frame_buffer_sem != NULL) && "Creation of framebuffer semaphore failed");
 
-    mk[1] = 0xDD000002;  /* semaphore created */
-
     // Create a queue of length 1
     vsync_queue = osMessageQueueNew(1, 4, NULL);
     assert((vsync_queue != NULL) && "Creation of vsync message queue failed");
-
-    mk[2] = 0xDD000003;  /* queue created */
 }
 
 /*

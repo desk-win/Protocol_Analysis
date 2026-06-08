@@ -57,24 +57,24 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define CTP_INT_Pin GPIO_PIN_5
+#define CTP_INT_GPIO_Port GPIOB
 #define LCD_CS_Pin GPIO_PIN_5
 #define LCD_CS_GPIO_Port GPIOD
 #define LCD_SCL_Pin GPIO_PIN_4
 #define LCD_SCL_GPIO_Port GPIOD
-#define CTP_RST_Pin GPIO_PIN_11
-#define CTP_RST_GPIO_Port GPIOG
 #define LCD_SDA_Pin GPIO_PIN_3
 #define LCD_SDA_GPIO_Port GPIOD
-#define CTP_SDA_Pin GPIO_PIN_12
-#define CTP_SDA_GPIO_Port GPIOG
-#define CTP_INT_Pin GPIO_PIN_13
-#define CTP_INT_GPIO_Port GPIOG
 #define LCD_PWREN_Pin GPIO_PIN_11
 #define LCD_PWREN_GPIO_Port GPIOI
-#define CTP_SCL_Pin GPIO_PIN_7
-#define CTP_SCL_GPIO_Port GPIOG
 #define LCD_RST_Pin GPIO_PIN_5
 #define LCD_RST_GPIO_Port GPIOH
+#define CTP_SCL_Pin GPIO_PIN_10
+#define CTP_SCL_GPIO_Port GPIOB
+#define CTP_SDA_Pin GPIO_PIN_11
+#define CTP_SDA_GPIO_Port GPIOB
+#define CTP_RST_Pin GPIO_PIN_12
+#define CTP_RST_GPIO_Port GPIOB
 #define BL_CTR_Pin GPIO_PIN_0
 #define BL_CTR_GPIO_Port GPIOB
 

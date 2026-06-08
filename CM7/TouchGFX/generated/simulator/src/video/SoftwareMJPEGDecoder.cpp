@@ -7,7 +7,7 @@
 #include <string.h>
 #include <simulator/video/SoftwareMJPEGDecoder.hpp>
 
-#define VIDEO_DECODE_FORMAT 24
+#define VIDEO_DECODE_FORMAT 16
 
 namespace
 {

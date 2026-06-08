@@ -19,6 +19,9 @@
 #include <TouchGFXGeneratedHAL.hpp>
 #include <touchgfx/hal/OSWrappers.hpp>
 #include <gui/common/FrontendHeap.hpp>
+#include <touchgfx/hal/GPIO.hpp>
+#include <touchgfx/hal/PaintImpl.hpp>
+#include <touchgfx/hal/PaintRGB565Impl.hpp>
 
 #include "stm32h7xx.h"
 #include "stm32h7xx_hal_ltdc.h"
@@ -33,44 +36,28 @@ static uint16_t lcd_int_porch_line;
 
 void TouchGFXGeneratedHAL::initialize()
 {
-    /*
-     * STEP MARKERS in SDRAM (0xD0000320–0xD0000328)
-     */
-    volatile uint32_t *mk = (volatile uint32_t *)0xD0000320U;
-    mk[0] = 0xCC000001;  /* entering generated HAL init */
-
     HAL::initialize();
-
-    mk[1] = 0xCC000002;  /* HAL::initialize() returned */
     registerEventListener(*(Application::getInstance()));
     registerTaskDelayFunction(&OSWrappers::taskDelay);
-    mk[2] = 0xCC000003;  /* event listener + task delay registered */
-
     if (!setFrameRefreshStrategy(HAL::REFRESH_STRATEGY_OPTIM_SINGLE_BUFFER_TFT_CTRL))
     {
         while (1);
     }
-    mk[3] = 0xCC000004;  /* refresh strategy set */
-
     setFrameBufferStartAddresses((void*)0xD0000000, (void*)0, (void*)0);
-    mk[4] = 0xCC000005;  /* frame buffer addresses set */
 }
 
 void TouchGFXGeneratedHAL::configureInterrupts()
 {
-    NVIC_SetPriority(DMA2D_IRQn, 9);
     NVIC_SetPriority(LTDC_IRQn, 9);
 }
 
 void TouchGFXGeneratedHAL::enableInterrupts()
 {
-    NVIC_EnableIRQ(DMA2D_IRQn);
     NVIC_EnableIRQ(LTDC_IRQn);
 }
 
 void TouchGFXGeneratedHAL::disableInterrupts()
 {
-    NVIC_DisableIRQ(DMA2D_IRQn);
     NVIC_DisableIRQ(LTDC_IRQn);
 }
 
@@ -158,4 +145,37 @@ void TouchGFXGeneratedHAL::FlushCache()
     }
 }
 
+extern "C"
+{
+    void HAL_LTDC_LineEventCallback(LTDC_HandleTypeDef* hltdc)
+    {
+        if (!HAL::getInstance())
+        {
+            return;
+        }
+
+        if (LTDC->LIPCR == lcd_int_active_line)
+        {
+            //entering active area
+            HAL_LTDC_ProgramLineEvent(hltdc, lcd_int_porch_line);
+            HAL::getInstance()->vSync();
+            OSWrappers::signalVSync();
+
+            // Swap frame buffers immediately instead of waiting for the task to be scheduled in.
+            // Note: task will also swap when it wakes up, but that operation is guarded and will not have
+            // any effect if already swapped.
+            HAL::getInstance()->swapFrameBuffers();
+            GPIO::set(GPIO::VSYNC_FREQ);
+        }
+        else
+        {
+            //exiting active area
+            HAL_LTDC_ProgramLineEvent(hltdc, lcd_int_active_line);
+
+            // Signal to the framework that display update has finished.
+            HAL::getInstance()->frontPorchEntered();
+            GPIO::clear(GPIO::VSYNC_FREQ);
+        }
+    }
+}
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

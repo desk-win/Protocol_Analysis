@@ -136,13 +136,13 @@
       "Width": 800,
       "Height": 480
     },
-    "SelectedColorDepth": 24,
+    "SelectedColorDepth": 16,
     "StartupScreenName": "screen",
     "SelectedStartupLanguage": "GB",
     "TouchGfxPath": "../Middlewares/ST/touchgfx",
     "UIPath": ".",
     "AvailableColorDepths": [
-      24
+      16
     ],
     "AvailableLCDs": {
       "16": "LCD16bpp",
@@ -160,8 +160,8 @@
     ],
     "PhysicalButtons": [],
     "FrameworkFeatures": {
-      "LCD24bpp": {
-        "Id": "LCD24bpp",
+      "LCD16bpp": {
+        "Id": "LCD16bpp",
         "IsEnabled": true
       }
     },

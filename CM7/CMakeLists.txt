@@ -96,6 +96,11 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Hardware/ltdc_draw.c
     Core/Hardware/tft_spi.c
     Core/Hardware/lcd.c
+    # Touch drivers (software I2C + GT9xxx/FT5206 auto-detect)
+    Core/Hardware/ctiic.c
+    Core/Hardware/gt9xxx.c
+    Core/Hardware/ft5206.c
+    Core/Hardware/touch.c
     Core/Src/crc.c
     # TouchGFX HAL callbacks (C++ bridge from LTDC ISR to OSWrappers)
     Core/Src/touchgfx_callbacks.cpp
@@ -105,6 +110,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     TouchGFX/target/generated/TouchGFXGeneratedHAL.cpp
     TouchGFX/target/generated/OSWrappers.cpp
     TouchGFX/target/TouchGFXHAL.cpp
+    TouchGFX/target/TouchGFXPaintRGB888.cpp
     TouchGFX/target/STM32TouchController.cpp
     TouchGFX/target/TouchGFXGPIO.cpp
     # TouchGFX app entry (C)

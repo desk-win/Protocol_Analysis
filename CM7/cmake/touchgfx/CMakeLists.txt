@@ -50,7 +50,11 @@ set(TouchGFX_Src
 )
 
 # Add generated touchgfx includes to interface library
-target_include_directories(stm32cubemx INTERFACE ${TouchGFX_Include_Dirs})
+target_include_directories(stm32cubemx INTERFACE
+    ${TouchGFX_Include_Dirs}
+    ${CMAKE_SOURCE_DIR}/Core/Hardware
+    ${CMAKE_SOURCE_DIR}/Core/Inc
+)
 target_compile_definitions(stm32cubemx INTERFACE ${TouchGFX_Defines_Syms})
 
 # Create TouchGFX library

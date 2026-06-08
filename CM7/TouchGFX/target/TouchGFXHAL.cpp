@@ -261,8 +261,7 @@ void TouchGFXHAL::enableLCDControllerInterrupt()
 bool TouchGFXHAL::beginFrame()
 {
     g_beginframe_count++;
-    /* Force beginFrame to always succeed. */
-    return true;
+    return TouchGFXGeneratedHAL::beginFrame();
 }
 
 void TouchGFXHAL::endFrame()

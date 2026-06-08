@@ -187,8 +187,9 @@ static void fault_dump_to_sdram(uint32_t *sp)
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern TIM_HandleTypeDef htim6;
+extern DMA2D_HandleTypeDef hdma2d;
 extern LTDC_HandleTypeDef hltdc;
+extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
 
@@ -223,8 +224,8 @@ void HardFault_Handler(void)
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
-    /* USER CODE BEGIN HardFault_IRQn 1 */
-    /* USER CODE END HardFault_IRQn 1 */
+    /* USER CODE BEGIN W1_HardFault_IRQn 0 */
+    /* USER CODE END W1_HardFault_IRQn 0 */
   }
 }
 
@@ -239,8 +240,8 @@ void MemManage_Handler(void)
   /* USER CODE END MemoryManagement_IRQn 0 */
   while (1)
   {
-    /* USER CODE BEGIN MemoryManagement_IRQn 1 */
-    /* USER CODE END MemoryManagement_IRQn 1 */
+    /* USER CODE BEGIN W1_MemoryManagement_IRQn 0 */
+    /* USER CODE END W1_MemoryManagement_IRQn 0 */
   }
 }
 
@@ -255,8 +256,8 @@ void BusFault_Handler(void)
   /* USER CODE END BusFault_IRQn 0 */
   while (1)
   {
-    /* USER CODE BEGIN BusFault_IRQn 1 */
-    /* USER CODE END BusFault_IRQn 1 */
+    /* USER CODE BEGIN W1_BusFault_IRQn 0 */
+    /* USER CODE END W1_BusFault_IRQn 0 */
   }
 }
 
@@ -271,8 +272,8 @@ void UsageFault_Handler(void)
   /* USER CODE END UsageFault_IRQn 0 */
   while (1)
   {
-    /* USER CODE BEGIN UsageFault_IRQn 1 */
-    /* USER CODE END UsageFault_IRQn 1 */
+    /* USER CODE BEGIN W1_UsageFault_IRQn 0 */
+    /* USER CODE END W1_UsageFault_IRQn 0 */
   }
 }
 
@@ -291,7 +292,6 @@ void DebugMon_Handler(void)
 
 /******************************************************************************/
 /* STM32H7xx Peripheral Interrupt Handlers                                    */
-/******************************************************************************/
 /* Add here the Interrupt Handlers for the used peripherals.                  */
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32h7xx.s).                    */
@@ -323,6 +323,20 @@ void LTDC_IRQHandler(void)
   /* USER CODE BEGIN LTDC_IRQn 1 */
 
   /* USER CODE END LTDC_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA2D global interrupt.
+  */
+void DMA2D_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA2D_IRQn 0 */
+
+  /* USER CODE END DMA2D_IRQn 0 */
+  HAL_DMA2D_IRQHandler(&hdma2d);
+  /* USER CODE BEGIN DMA2D_IRQn 1 */
+
+  /* USER CODE END DMA2D_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

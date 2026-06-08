@@ -39,9 +39,6 @@ static ApplicationFontProvider fontProvider;
 static Texts texts;
 static TouchGFXHAL hal(dma, display, tc, 800, 480);
 
-/* Diagnostic: set to 1 when touchgfx_taskEntry() starts */
-volatile uint32_t g_task_entry_called = 0;
-
 void touchgfx_init()
 {
     Bitmap::registerBitmapDatabase(BitmapDatabase::getInstance(), BitmapDatabase::getInstanceSize());
@@ -74,7 +71,6 @@ void touchgfx_taskEntry()
      *
      * Note This function never returns
      */
-    g_task_entry_called = 1;
     hal.taskEntry();
 }
 
