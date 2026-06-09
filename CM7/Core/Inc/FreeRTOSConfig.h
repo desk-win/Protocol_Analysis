@@ -70,6 +70,7 @@ extern uint32_t SystemCoreClock;
 #define configUSE_MINI_LIST_ITEM                ( valueNotSetted )
 #define configMINIMAL_STACK_SIZE                 ((uint16_t)128)
 #define configTOTAL_HEAP_SIZE                    ((size_t)98304)
+#define configAPPLICATION_ALLOCATED_HEAP         1       /* ucHeap provided by user in AXI SRAM */
 #define configMAX_TASK_NAME_LEN                  ( 16 )
 #define configHEAP_CLEAR_MEMORY_ON_FREE          0
 #define configUSE_TRACE_FACILITY                 1

@@ -27,6 +27,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_touchgfx.h"   /* provides TouchGFX_Task() */
+#include "FreeRTOSConfig.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,6 +54,9 @@
 static StaticTask_t touchgfxTCB;
 __attribute__((section(".axi_stack"))) static StackType_t touchgfxStack[TOUCHGFX_STACK_WORDS];
 osThreadId_t touchgfxTaskHandle;
+
+/* FreeRTOS heap in AXI SRAM — avoids SDRAM/LTDC bus conflict */
+__attribute__((section(".axi_heap"))) uint8_t ucHeap[configTOTAL_HEAP_SIZE];
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;

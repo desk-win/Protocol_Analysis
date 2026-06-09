@@ -243,6 +243,16 @@ SECTIONS
     __axi_stack_end = .;
   } >AXI_SRAM
 
+  /* FreeRTOS heap in AXI SRAM (avoids SDRAM bus conflict with LTDC) */
+  .axi_heap (NOLOAD) :
+  {
+    . = ALIGN(8);
+    __axi_heap_start = .;
+    KEEP(*(.axi_heap))
+    . = ALIGN(8);
+    __axi_heap_end = .;
+  } >AXI_SRAM
+
   /* Remove information from the standard libraries */
   /DISCARD/ :
   {
