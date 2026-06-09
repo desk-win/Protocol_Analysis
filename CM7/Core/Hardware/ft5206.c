@@ -1,58 +1,33 @@
 /**
  * 触摸屏驱动 — FT5206 / FT5426 电容触摸 IC 实现
- * 引脚: RST=PB12, INT=PB5, I2C=PB10/PB11 (软件 I2C)
- * PB5 已从 FMC 释放（CubeMX 配为 GPIO_Input），init 后无需恢复
+ * 引脚: RST=PB12, INT=PB5, I2C=PB10/PB11 (硬件 I2C2)
  */
 
 #include <string.h>
 #include <stdio.h>
 #include "ft5206.h"
-#include "ctiic.h"
+#include "i2c.h"
 #include "touch.h"
 #include "lcd.h"
 #include "delay.h"
 
+#define FT5206_I2C_TIMEOUT  100     /* ms */
+
 uint8_t ft5206_wr_reg(uint16_t reg, uint8_t *buf, uint8_t len)
 {
-    uint8_t i;
-    uint8_t ret = 0;
+    HAL_StatusTypeDef status;
 
-    ct_iic_start();
-    ct_iic_send_byte(FT5206_CMD_WR);
-    ct_iic_wait_ack();
-    ct_iic_send_byte(reg & 0XFF);
-    ct_iic_wait_ack();
-
-    for (i = 0; i < len; i++)
-    {
-        ct_iic_send_byte(buf[i]);
-        ret = ct_iic_wait_ack();
-        if (ret) break;
-    }
-
-    ct_iic_stop();
-    return ret;
+    status = HAL_I2C_Mem_Write(&hi2c2, FT5206_CMD_WR, reg,
+                               I2C_MEMADD_SIZE_8BIT, buf, len,
+                               FT5206_I2C_TIMEOUT);
+    return (status != HAL_OK) ? 1 : 0;
 }
 
 void ft5206_rd_reg(uint16_t reg, uint8_t *buf, uint8_t len)
 {
-    uint8_t i;
-
-    ct_iic_start();
-    ct_iic_send_byte(FT5206_CMD_WR);
-    ct_iic_wait_ack();
-    ct_iic_send_byte(reg & 0XFF);
-    ct_iic_wait_ack();
-    ct_iic_start();
-    ct_iic_send_byte(FT5206_CMD_RD);
-    ct_iic_wait_ack();
-
-    for (i = 0; i < len; i++)
-    {
-        buf[i] = ct_iic_read_byte(i == (len - 1) ? 0 : 1);
-    }
-
-    ct_iic_stop();
+    HAL_I2C_Mem_Read(&hi2c2, FT5206_CMD_WR, reg,
+                     I2C_MEMADD_SIZE_8BIT, buf, len,
+                     FT5206_I2C_TIMEOUT);
 }
 
 uint8_t ft5206_init(void)
@@ -74,8 +49,6 @@ uint8_t ft5206_init(void)
     gpio_init_struct.Pull  = GPIO_PULLUP;
     gpio_init_struct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     HAL_GPIO_Init(FT5206_INT_GPIO_PORT, &gpio_init_struct);
-
-    ct_iic_init();
 
     FT5206_RST(0);
     delay_ms(20);

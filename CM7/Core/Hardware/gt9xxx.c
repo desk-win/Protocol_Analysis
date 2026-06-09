@@ -1,68 +1,39 @@
 /**
  * 触摸屏驱动 — GT9xxx 电容触摸 IC 实现
  * ==================================================
- * 移植自 正点原子 实验24 gt9xxx.c
- * 引脚: RST=PB12, INT=PB5, I2C=PB10/PB11 (软件 I2C)
- * PB5 已从 FMC 释放（CubeMX 配为 GPIO_Input），init 后无需恢复
+ * 引脚: RST=PB12, INT=PB5, I2C=PB10/PB11 (硬件 I2C2)
+ * PB5 已从 FMC 释放（CubeMX 配为 GPIO_Input）
  */
 
 #include <string.h>
 #include <stdio.h>
 #include "gt9xxx.h"
-#include "ctiic.h"
+#include "i2c.h"
 #include "touch.h"
 #include "lcd.h"
 #include "delay.h"
 
 static uint8_t g_gt_tnum = 5;
 
-/* ── I2C read / write ────────────────────────────────────────────────── */
+/* ── I2C read / write (hardware I2C2) ────────────────────────────────── */
+
+#define GT9XXX_I2C_TIMEOUT  100     /* ms */
 
 uint8_t gt9xxx_wr_reg(uint16_t reg, uint8_t *buf, uint8_t len)
 {
-    uint8_t i;
-    uint8_t ret = 0;
+    HAL_StatusTypeDef status;
 
-    ct_iic_start();
-    ct_iic_send_byte(GT9XXX_CMD_WR);
-    ct_iic_wait_ack();
-    ct_iic_send_byte(reg >> 8);
-    ct_iic_wait_ack();
-    ct_iic_send_byte(reg & 0XFF);
-    ct_iic_wait_ack();
-
-    for (i = 0; i < len; i++)
-    {
-        ct_iic_send_byte(buf[i]);
-        ret = ct_iic_wait_ack();
-        if (ret) break;
-    }
-
-    ct_iic_stop();
-    return ret;
+    status = HAL_I2C_Mem_Write(&hi2c2, GT9XXX_CMD_WR, reg,
+                               I2C_MEMADD_SIZE_16BIT, buf, len,
+                               GT9XXX_I2C_TIMEOUT);
+    return (status != HAL_OK) ? 1 : 0;
 }
 
 void gt9xxx_rd_reg(uint16_t reg, uint8_t *buf, uint8_t len)
 {
-    uint8_t i;
-
-    ct_iic_start();
-    ct_iic_send_byte(GT9XXX_CMD_WR);
-    ct_iic_wait_ack();
-    ct_iic_send_byte(reg >> 8);
-    ct_iic_wait_ack();
-    ct_iic_send_byte(reg & 0XFF);
-    ct_iic_wait_ack();
-    ct_iic_start();
-    ct_iic_send_byte(GT9XXX_CMD_RD);
-    ct_iic_wait_ack();
-
-    for (i = 0; i < len; i++)
-    {
-        buf[i] = ct_iic_read_byte(i == (len - 1) ? 0 : 1);
-    }
-
-    ct_iic_stop();
+    HAL_I2C_Mem_Read(&hi2c2, GT9XXX_CMD_WR, reg,
+                     I2C_MEMADD_SIZE_16BIT, buf, len,
+                     GT9XXX_I2C_TIMEOUT);
 }
 
 /* ── Init ────────────────────────────────────────────────────────────── */
@@ -82,16 +53,12 @@ uint8_t gt9xxx_init(void)
     gpio_init_struct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     HAL_GPIO_Init(GT9XXX_RST_GPIO_PORT, &gpio_init_struct);
 
-    /* INT (PB5): 临时从 FMC 借用为 GPIO 输入上拉
-     * GT9xxx 在 RST 上升沿采样 INT: HIGH → addr 0x28/0x29
-     */
+    /* INT (PB5): 输入上拉 — GT9xxx 在 RST 上升沿采样 INT: HIGH → addr 0x28/0x29 */
     gpio_init_struct.Pin   = GT9XXX_INT_GPIO_PIN;
     gpio_init_struct.Mode  = GPIO_MODE_INPUT;
     gpio_init_struct.Pull  = GPIO_PULLUP;
     gpio_init_struct.Speed = GPIO_SPEED_FREQ_MEDIUM;
     HAL_GPIO_Init(GT9XXX_INT_GPIO_PORT, &gpio_init_struct);
-
-    ct_iic_init();
 
     /* 硬件复位序列 */
     GT9XXX_RST(0);
@@ -142,7 +109,7 @@ static const uint16_t GT9XXX_TPX_TBL[10] = {
 
 /**
  * @brief  扫描触摸 (轮询模式)
- * @note   移植自正点原子 gt9xxx_scan(), 使用 t%10 节流:
+ * @note   使用 t%10 节流:
  *         - 首次 10 帧每帧读 I2C (快速检测首次触摸)
  *         - 之后每 10 帧读一次 I2C (降低总线占用)
  *         - 有效触摸后 t=0 立即重置, 保证拖拽响应

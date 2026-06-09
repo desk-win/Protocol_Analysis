@@ -25,20 +25,16 @@
 #include <STM32TouchController.hpp>
 #include <touch.h>
 
-/* Global: accessible from screenView for visual debug */
-extern "C" { int g_tp_init_result = -1; }  /* -1=not called, 0=ok, 1=failed */
-
 void STM32TouchController::init()
 {
     /**
      * Initialize touch controller and driver
      *
-     * tp_init() auto-detects GT9xxx or FT5206 via software I2C (PB10/PB11).
-     * Must be called after lcd_init() (depends on lcddev.dir).
-     * This runs in the TouchGFX task, which starts after main() lcd_init().
+     * tp_init() auto-detects GT9xxx or FT5206 via hardware I2C2 (PB10/PB11).
+     * Must be called after MX_LTDC_Init() (depends on lcddev.dir/width/height).
+     * This runs in the TouchGFX task, which starts after main() peripherals init.
      */
-    g_tp_init_result = 2;  /* debug: 2=init entered */
-    g_tp_init_result = tp_init();
+    tp_init();
 }
 
 bool STM32TouchController::sampleTouch(int32_t& x, int32_t& y)

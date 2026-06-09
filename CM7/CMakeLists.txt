@@ -96,8 +96,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Hardware/ltdc_draw.c
     Core/Hardware/tft_spi.c
     Core/Hardware/lcd.c
-    # Touch drivers (software I2C + GT9xxx/FT5206 auto-detect)
-    Core/Hardware/ctiic.c
+    # Touch drivers (hardware I2C2 + GT9xxx/FT5206 auto-detect)
     Core/Hardware/gt9xxx.c
     Core/Hardware/ft5206.c
     Core/Hardware/touch.c

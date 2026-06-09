@@ -2,10 +2,10 @@
  * 触摸屏驱动 — GT9xxx 电容触摸 IC
  * ==================================================
  * 支持 GT911 / GT9147 / GT1151 / GT9271 / GT967 等
- * 引脚映射 (与正点原子例程一致):
+ * 引脚映射:
  *   RST = PB12  — 推挽输出
- *   INT = PB5   — 复位时临时 GPIO, 完成后归还 FMC
- *   I2C = 软件 I2C (ctiic.c, PB10/PB11)
+ *   INT = PB5   — GPIO_Input (CubeMX 配置)
+ *   I2C = 硬件 I2C2 (PB10/PB11)
  */
 #ifndef __GT9XXX_H
 #define __GT9XXX_H
