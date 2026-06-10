@@ -1,0 +1,49 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "CM7_Debug",
+            "type": "stlinkgdbtarget",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "preBuild": "${command:st-stm32-ide-debug-launch.build}",
+            "runEntry": "main",
+            "deviceName": "STM32H747XI",
+            "deviceCore": "Cortex-M7",
+            "serverShared": true,
+            "serverHaltAllCores": true,
+            "imagesAndSymbols": [
+                {
+                    "imageFileName": "${workspaceFolder}/CM7/build/stm32h747_bbb_CM7.elf" 
+                },
+                {
+                    "imageFileName": "${workspaceFolder}/CM4/build/stm32h747_bbb_CM4.elf"
+                }
+            ]
+        },
+        {
+            "name": "CM4_Debug",
+            "type": "stlinkgdbtarget",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "runEntry": "main",
+            "deviceName": "STM32H747XI",
+            "deviceCore": "Cortex-M4",
+            "serverShared": true,
+            "serverApID": "3", 
+            "serverPort": "61239",
+            "serverReset": "None",
+            "imagesAndSymbols": [
+                {
+                    "symbolFileName": "${workspaceFolder}/CM4/build/stm32h747_bbb_CM4.elf"
+                }
+            ]
+        }
+    ],
+    "compounds": [
+        {
+            "name": "DualCore_Debug",
+            "configurations": ["CM7_Debug", "CM4_Debug"]
+        }
+    ]
+}
