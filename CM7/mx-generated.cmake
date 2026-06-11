@@ -47,7 +47,6 @@ set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/syscalls.c
     ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/Target/bsp_driver_sd.c
     ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/Target/sd_diskio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/Target/fatfs_platform.c
     ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/App/fatfs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/TouchGFX/target/generated/TouchGFXConfiguration.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/TouchGFX/target/generated/TouchGFXGeneratedHAL.cpp
@@ -119,6 +118,7 @@ set(FatFs_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src/ff.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src/ff_gen_drv.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src/option/syscall.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src/option/cc936.c
 )
 # Link directories setup
 set(MX_LINK_DIRS

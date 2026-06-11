@@ -36,6 +36,7 @@
 /* USER CODE BEGIN Includes */
 #include "delay.h"
 #include "lcd.h"
+#include "bsp_driver_sd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,7 +57,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint8_t g_sd_nand_detected = 0;   /* 1 = SD NAND detected & ready */
+HAL_SD_CardInfoTypeDef g_sd_card_info;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -149,10 +151,12 @@ Error_Handler();
   /* Initialize all configured peripherals */
   MX_DMA_Init();
   MX_GPIO_Init();
-  MX_I2C2_Init();
-  MX_TIM3_Init();
+  
+  /* USER CODE BEGIN 2 */
   MX_FMC_Init();           /* SDRAM init MUST precede LTDC (framebuffer @ 0xD0000000) */
   MX_LTDC_Init();          /* LTDC reads from SDRAM — requires FMC already running */
+  MX_I2C2_Init();
+  MX_TIM3_Init();
   MX_DMA2D_Init();
   MX_CRC_Init();
   MX_SDMMC2_SD_Init();
@@ -160,9 +164,10 @@ Error_Handler();
   MX_TouchGFX_Init();
   /* Call PreOsInit function */
   MX_TouchGFX_PreOSInit();
-  /* USER CODE BEGIN 2 */
-  /* Reinit LCD with auto-detect (MPU & SDRAM already initialized by CubeMX) */
-  /* lcd_init(); */  /* TEMP: disabled to isolate HardFault */
+
+  /* SD NAND init is deferred to TouchGFX handleTickEvent().
+   * HAL_SD_Init() blocks in SDMMC_GetCmdResp1() on this platform,
+   * so we init manually in the task instead.                       */
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -214,7 +219,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 5;
   RCC_OscInitStruct.PLL.PLLN = 192;
   RCC_OscInitStruct.PLL.PLLP = 2;
-  RCC_OscInitStruct.PLL.PLLQ = 20;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
   RCC_OscInitStruct.PLL.PLLR = 2;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_2;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;

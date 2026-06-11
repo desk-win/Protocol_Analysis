@@ -79,7 +79,8 @@ void Error_Handler(void);
 #define BL_CTR_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
+extern uint8_t g_sd_nand_detected;           /* 1 = SD NAND detected & ready */
+extern HAL_SD_CardInfoTypeDef g_sd_card_info; /* Card info (valid when detected) */
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

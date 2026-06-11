@@ -189,6 +189,7 @@ static void fault_dump_to_sdram(uint32_t *sp)
 /* External variables --------------------------------------------------------*/
 extern DMA2D_HandleTypeDef hdma2d;
 extern LTDC_HandleTypeDef hltdc;
+extern SD_HandleTypeDef hsd2;
 extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
@@ -337,6 +338,20 @@ void DMA2D_IRQHandler(void)
   /* USER CODE BEGIN DMA2D_IRQn 1 */
 
   /* USER CODE END DMA2D_IRQn 1 */
+}
+
+/**
+  * @brief This function handles SDMMC2 global interrupt.
+  */
+void SDMMC2_IRQHandler(void)
+{
+  /* USER CODE BEGIN SDMMC2_IRQn 0 */
+
+  /* USER CODE END SDMMC2_IRQn 0 */
+  HAL_SD_IRQHandler(&hsd2);
+  /* USER CODE BEGIN SDMMC2_IRQn 1 */
+
+  /* USER CODE END SDMMC2_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
