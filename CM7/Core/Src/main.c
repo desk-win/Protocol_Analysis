@@ -59,6 +59,7 @@
 /* USER CODE BEGIN PV */
 uint8_t g_sd_nand_detected = 0;   /* 1 = SD NAND detected & ready */
 HAL_SD_CardInfoTypeDef g_sd_card_info;
+	uint32_t g_sd_free_kb = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/

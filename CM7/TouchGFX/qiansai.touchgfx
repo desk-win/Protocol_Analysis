@@ -57,7 +57,7 @@
             "Type": "Box",
             "Name": "box5",
             "X": 449,
-            "Width": 196,
+            "Width": 160,
             "Height": 480,
             "Color": {
               "Red": 204,
@@ -68,8 +68,8 @@
           {
             "Type": "Box",
             "Name": "box6",
-            "X": 645,
-            "Width": 155,
+            "X": 609,
+            "Width": 191,
             "Height": 480,
             "Color": {
               "Red": 136,
@@ -125,6 +125,48 @@
             ],
             "XScale": 1.0,
             "YScale": 1.0
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textArea1",
+            "X": 33,
+            "Y": 20,
+            "Width": 140,
+            "Height": 33,
+            "TextId": "__SingleUse_QBZV",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textArea1_1",
+            "X": 19,
+            "Y": 67,
+            "Width": 158,
+            "Height": 33,
+            "TextId": "__SingleUse_U5RV",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "AutoSize": true
+          },
+          {
+            "Type": "ToggleButton",
+            "Name": "toggleButton1",
+            "X": 662,
+            "Y": 3,
+            "Width": 138,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_togglebutton_medium_round_text_on_light.png",
+            "Released": "__generated\\alternate_theme_images_widgets_togglebutton_medium_round_text_off_normal.png"
           }
         ],
         "Interactions": []

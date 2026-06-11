@@ -4,6 +4,8 @@
 #include <gui_generated/screen_screen/screenViewBase.hpp>
 #include <touchgfx/canvas_widget_renderer/CanvasWidgetRenderer.hpp>
 #include <touchgfx/Color.hpp>
+#include <texts/TextKeysAndLanguages.hpp>
+#include <images/BitmapDatabase.hpp>
 
 screenViewBase::screenViewBase()
 {
@@ -29,11 +31,11 @@ screenViewBase::screenViewBase()
     box4.setColor(touchgfx::Color::getColorFromRGB(64, 184, 146));
     add(box4);
 
-    box5.setPosition(449, 0, 196, 480);
+    box5.setPosition(449, 0, 160, 480);
     box5.setColor(touchgfx::Color::getColorFromRGB(204, 157, 16));
     add(box5);
 
-    box6.setPosition(645, 0, 155, 480);
+    box6.setPosition(609, 0, 191, 480);
     box6.setColor(touchgfx::Color::getColorFromRGB(136, 177, 235));
     add(box6);
 
@@ -55,6 +57,22 @@ screenViewBase::screenViewBase()
     const touchgfx::AbstractShape::ShapePoint<float> shape1Points[4] = { { 40.0f, 0.0f }, { 80.0f, 40.0f }, { 40.0f, 80.0f }, { 0.0f, 40.0f } };
     shape1.setShape(shape1Points);
     add(shape1);
+
+    textArea1.setXY(33, 20);
+    textArea1.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    textArea1.setLinespacing(0);
+    textArea1.setTypedText(touchgfx::TypedText(T___SINGLEUSE_QBZV));
+    add(textArea1);
+
+    textArea1_1.setXY(19, 67);
+    textArea1_1.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    textArea1_1.setLinespacing(0);
+    textArea1_1.setTypedText(touchgfx::TypedText(T___SINGLEUSE_U5RV));
+    add(textArea1_1);
+
+    toggleButton1.setXY(662, 3);
+    toggleButton1.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_TOGGLEBUTTON_MEDIUM_ROUND_TEXT_OFF_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_TOGGLEBUTTON_MEDIUM_ROUND_TEXT_ON_LIGHT_ID));
+    add(toggleButton1);
 }
 
 screenViewBase::~screenViewBase()

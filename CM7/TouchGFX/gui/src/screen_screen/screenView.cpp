@@ -87,29 +87,114 @@ static uint8_t sdnand_init(void)
 }
 
 /**
- * @brief  FatFs test: mount + read root directory
- * @retval 0=success, 1=mount fail, 2=opendir fail
+ * @brief  SD NAND 综合测试（面向ADC波形存储场景）
+ *
+ * 测试流程：
+ *   1. f_mount
+ *   2. 写入测试文件 (模拟ADC采样数据: 8KB)
+ *   3. 读回并校验数据完整性
+ *   4. 获取卡容量信息
+ *
+ * @retval 0=全部通过
+ *         1=mount失败
+ *         2=写文件失败
+ *         3=读文件失败
+ *         4=数据校验失败
+ *         5=获取容量失败
  */
-static int fatfs_test(void)
+static int sd_nand_full_test(void)
 {
     FRESULT fr;
+    FIL file;
+    UINT bw, br;
+
+    /* Step 1: Mount */
     fr = f_mount(&SDFatFS, SDPath, 1);
     if (fr != FR_OK) return 1;
 
-    DIR dir;
-    fr = f_opendir(&dir, "/");
+    /* Step 2: 写入测试文件 — 模拟ADC采样数据 */
+    #define TEST_DATA_SIZE  (8 * 1024)  /* 8KB, 模拟一次ADC采样块 */
+    static uint8_t wr_buf[512];
+    static uint8_t rd_buf[512];
+
+    /* 填充伪ADC数据: 递增计数 + 固定pattern */
+    for (int i = 0; i < 512; i++)
+    {
+        wr_buf[i] = (uint8_t)(i & 0xFF);
+    }
+
+    fr = f_open(&file, "0:adc_test.bin", FA_CREATE_ALWAYS | FA_WRITE);
     if (fr != FR_OK) return 2;
 
-    FILINFO fno;
-    f_readdir(&dir, &fno);
-    f_closedir(&dir);
+    /* 写入16个block = 8KB */
+    for (int blk = 0; blk < (TEST_DATA_SIZE / 512); blk++)
+    {
+        /* 每个block稍微变化pattern, 模拟不同采样段 */
+        wr_buf[0] = (uint8_t)(blk & 0xFF);       /* 块编号 */
+        wr_buf[1] = (uint8_t)((blk >> 8) & 0xFF);
+        wr_buf[510] = (uint8_t)~(blk & 0xFF);     /* 尾部校验 */
+        wr_buf[511] = 0xA5;
+
+        fr = f_write(&file, wr_buf, 512, &bw);
+        if (fr != FR_OK || bw != 512)
+        {
+            f_close(&file);
+            return 2;
+        }
+    }
+    f_close(&file);
+
+    /* Step 3: 读回并校验 */
+    fr = f_open(&file, "0:adc_test.bin", FA_READ);
+    if (fr != FR_OK) return 3;
+
+    for (int blk = 0; blk < (TEST_DATA_SIZE / 512); blk++)
+    {
+        fr = f_read(&file, rd_buf, 512, &br);
+        if (fr != FR_OK || br != 512)
+        {
+            f_close(&file);
+            return 3;
+        }
+
+        /* 校验: header */
+        if (rd_buf[0] != (uint8_t)(blk & 0xFF))     { f_close(&file); return 4; }
+        if (rd_buf[1] != (uint8_t)((blk >> 8) & 0xFF)){ f_close(&file); return 4; }
+        /* 校验: 尾部 */
+        if (rd_buf[510] != (uint8_t)~(blk & 0xFF))   { f_close(&file); return 4; }
+        if (rd_buf[511] != 0xA5)                       { f_close(&file); return 4; }
+        /* 校验: 中间数据 */
+        for (int i = 2; i < 510; i++)
+        {
+            if (rd_buf[i] != (uint8_t)(i & 0xFF))
+            {
+                f_close(&file);
+                return 4;
+            }
+        }
+    }
+    f_close(&file);
+
+    /* Step 4: 获取卡容量 (验证ioctl) */
+    FATFS *fs;
+    DWORD fre_clust;
+    fr = f_getfree("0:", &fre_clust, &fs);
+    if (fr != FR_OK) return 5;
+
+    /* 更新全局卡信息供UI显示 */
+    g_sd_card_info.LogBlockNbr = (fs->n_fatent - 2) * fs->csize;
+    g_sd_card_info.LogBlockSize = 512;
+    g_sd_free_kb = fre_clust * fs->csize / 2;  /* 空闲空间KB */
+
     return 0;
 }
 
 screenView::screenView()
     : touchDotAdded(false), sdTestDone(false), sdTestResult(-1),
-      fatfsResult(-1), tickCount(0), sdStatusBarAdded(false)
+      fatfsResult(-1), tickCount(0), sdStatusBarAdded(false),
+      capacityTextAdded(false)
 {
+    capacityBuf[0] = 0;
 }
 
 void screenView::setupScreen()
@@ -126,8 +211,16 @@ void screenView::setupScreen()
     touchDot.setVisible(false);
     touchDot.setTouchable(false);
 
-    sdStatusBar.setPosition(50, 14, 200, 8);
+    sdStatusBar.setPosition(0, 460, 200, 8);
     sdStatusBar.setVisible(false);
+
+    /* SD容量文字 */
+    capacityText.setPosition(210, 452, 400, 24);
+    capacityText.setTypedText(TypedText(0));   /* __TXT_WILDCARD = Verdana20 */
+    capacityText.setWildcard(capacityBuf);
+    capacityText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    capacityText.setVisible(false);
+    capacityTextAdded = false;
 }
 
 void screenView::tearDownScreen()
@@ -159,7 +252,7 @@ void screenView::handleTickEvent()
 
             if (det == 0)
             {
-                fatfsResult = fatfs_test();
+                fatfsResult = sd_nand_full_test();
                 sdTestResult = (fatfsResult == 0) ? 0 : 10 + fatfsResult;
             }
             else
@@ -169,17 +262,27 @@ void screenView::handleTickEvent()
 
             /* Color = diagnostic */
             if (sdTestResult == 0)
-                sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(0, 255, 0));         /* GREEN  = all ok */
+                sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(0, 255, 0));         /* GREEN  = 全部通过 */
             else if (sdTestResult >= 10)
-                sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(255, 165, 0));       /* ORANGE = SD ok, FatFs fail */
+            {
+                /* FatFs/读写测试失败 */
+                switch (sdTestResult - 10)
+                {
+                case 1:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(255, 255, 0));   break; /* YELLOW  = mount失败 */
+                case 2:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(255, 165, 0));   break; /* ORANGE  = 写文件失败 */
+                case 3:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(0, 0, 255));     break; /* BLUE    = 读文件失败 */
+                case 4:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(255, 0, 255));   break; /* MAGENTA = 数据校验失败! */
+                case 5:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(128, 128, 128)); break; /* GRAY    = 获取容量失败 */
+                default: sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(255, 0, 0));     break; /* RED */
+                }
+            }
             else
             {
+                /* SD NAND init 失败 */
                 switch (sdTestResult)
                 {
                 case 1:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(255, 255, 0));   break; /* YELLOW  = HAL_ERROR */
                 case 2:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(0, 255, 255));   break; /* CYAN    = HAL_TIMEOUT */
-                case 3:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(0, 0, 255));     break; /* BLUE    = HAL_BUSY */
-                case 4:  sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(128, 0, 128));   break; /* PURPLE  = other HAL status */
                 default: sdStatusBar.setColor(touchgfx::Color::getColorFromRGB(255, 0, 0));     break; /* RED */
                 }
             }
@@ -190,11 +293,51 @@ void screenView::handleTickEvent()
                 (sdTestResult == 0) ? touchgfx::Color::getColorFromRGB(0, 255, 0)
                                     : touchgfx::Color::getColorFromRGB(255, 0, 0));
             touchDot.setPainter(touchDotPainter);
-            touchDot.setRadius(15);
-            touchDot.setCenter(16, 16);
-            touchDot.setPosition(10, 10, 32, 32);
+            touchDot.setRadius(8);
+            touchDot.setCenter(8, 8);
+            touchDot.setPosition(460, 460, 16, 16);
             touchDot.setVisible(true);
             touchDot.invalidate();
+
+            /* 显示容量文字 */
+            if (sdTestResult == 0)
+            {
+                uint32_t total_kb = g_sd_card_info.LogBlockNbr / 2;
+                uint32_t free_kb_val = g_sd_free_kb;
+                touchgfx::Unicode::UnicodeChar* p = capacityBuf;
+                const char* s1 = "Total:";
+                while (*s1) *p++ = *s1++;
+                /* total MB */
+                {
+                    char tmp[12];
+                    int len = 0;
+                    uint32_t v = total_kb / 1024;
+                    do { tmp[len++] = '0' + (v % 10); v /= 10; } while (v);
+                    for (int i = len - 1; i >= 0; i--) *p++ = tmp[i];
+                }
+                const char* s2 = "MB Free:";
+                while (*s2) *p++ = *s2++;
+                {
+                    char tmp[12];
+                    int len = 0;
+                    uint32_t v = free_kb_val / 1024;
+                    do { tmp[len++] = '0' + (v % 10); v /= 10; } while (v);
+                    for (int i = len - 1; i >= 0; i--) *p++ = tmp[i];
+                }
+                const char* s3 = "MB";
+                while (*s3) *p++ = *s3++;
+                *p = 0;
+
+                capacityText.invalidate();
+                capacityText.setWildcard(capacityBuf);
+                capacityText.setVisible(true);
+                if (!capacityTextAdded)
+                {
+                    add(capacityText);
+                    capacityTextAdded = true;
+                }
+                capacityText.invalidate();
+            }
         }
     }
 
@@ -215,9 +358,9 @@ void screenView::handleTickEvent()
     else if (sdTestDone)
     {
         touchDot.invalidate();
-        touchDot.setRadius(15);
-        touchDot.setCenter(16, 16);
-        touchDot.setPosition(10, 10, 32, 32);
+        touchDot.setRadius(8);
+        touchDot.setCenter(8, 8);
+        touchDot.setPosition(460, 460, 16, 16);
         touchDot.setVisible(true);
         touchDot.invalidate();
     }

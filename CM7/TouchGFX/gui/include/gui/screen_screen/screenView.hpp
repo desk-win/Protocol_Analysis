@@ -6,6 +6,8 @@
 #include <touchgfx/widgets/canvas/Circle.hpp>
 #include <touchgfx/widgets/canvas/PainterRGB565.hpp>
 #include <touchgfx/widgets/Box.hpp>
+#include <touchgfx/widgets/TextAreaWithWildcard.hpp>
+#include <texts/TextKeysAndLanguages.hpp>
 
 class screenView : public screenViewBase
 {
@@ -22,12 +24,16 @@ protected:
     touchgfx::PainterRGB565 touchDotPainter;
     bool touchDotAdded;
     bool sdTestDone;
-    int  sdTestResult;    /* 0=ok, 2=CMD0, 3=CMD8, 10+=FatFs error */
-    int  fatfsResult;     /* 0=ok, 1=mount fail, 2=opendir fail */
+    int  sdTestResult;
+    int  fatfsResult;
     int  tickCount;
 
     touchgfx::Box sdStatusBar;
     bool sdStatusBarAdded;
+
+    touchgfx::TextAreaWithOneWildcard capacityText;
+    bool capacityTextAdded;
+    touchgfx::Unicode::UnicodeChar capacityBuf[30];
 };
 
 #endif // SCREENVIEW_HPP

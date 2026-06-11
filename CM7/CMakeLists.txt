@@ -53,6 +53,12 @@ list(REMOVE_ITEM _tgx_defs "USE_BPP=24")
 list(APPEND _tgx_defs "USE_BPP=16")
 set_target_properties(stm32cubemx PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${_tgx_defs}")
 
+# Inject user include paths into TouchGFX target (survives Designer regeneration)
+target_include_directories(TouchGFX PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Hardware
+)
+
 
 # In order to use CMake for cross-compiling
 set(CMAKE_CXX_COMPILER_FORCED "true")

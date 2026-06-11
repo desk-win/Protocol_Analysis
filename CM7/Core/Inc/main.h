@@ -81,6 +81,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 extern uint8_t g_sd_nand_detected;           /* 1 = SD NAND detected & ready */
 extern HAL_SD_CardInfoTypeDef g_sd_card_info; /* Card info (valid when detected) */
+extern uint32_t g_sd_free_kb;                /* SD NAND free space in KB */
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

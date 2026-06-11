@@ -11,6 +11,8 @@
 #include <touchgfx/widgets/canvas/Circle.hpp>
 #include <touchgfx/widgets/canvas/PainterRGB565.hpp>
 #include <touchgfx/widgets/canvas/Shape.hpp>
+#include <touchgfx/widgets/TextArea.hpp>
+#include <touchgfx/widgets/ToggleButton.hpp>
 
 class screenViewBase : public touchgfx::View<screenPresenter>
 {
@@ -38,6 +40,9 @@ protected:
     touchgfx::PainterRGB565 circle1Painter;
     touchgfx::Shape<4> shape1;
     touchgfx::PainterRGB565 shape1Painter;
+    touchgfx::TextArea textArea1;
+    touchgfx::TextArea textArea1_1;
+    touchgfx::ToggleButton toggleButton1;
 
 private:
 
