@@ -12,8 +12,14 @@
 #include <gui/common/FrontendApplication.hpp>
 #include <gui/model/Model.hpp>
 
-#include <gui/screen_screen/screenView.hpp>
-#include <gui/screen_screen/screenPresenter.hpp>
+#include <gui/start_screen_screen/start_screenView.hpp>
+#include <gui/start_screen_screen/start_screenPresenter.hpp>
+#include <gui/data_screen_screen/Data_screenView.hpp>
+#include <gui/data_screen_screen/Data_screenPresenter.hpp>
+#include <gui/sd_test_screen_screen/SD_Test_ScreenView.hpp>
+#include <gui/sd_test_screen_screen/SD_Test_ScreenPresenter.hpp>
+#include <gui/settings_screen_screen/Settings_ScreenView.hpp>
+#include <gui/settings_screen_screen/Settings_ScreenPresenter.hpp>
 
 
 /**
@@ -36,8 +42,11 @@ public:
      * A list of all view types. Must end with meta::Nil.
      * @note All view types used in the application MUST be added to this list!
      */
-    typedef touchgfx::meta::TypeList< screenView,
-            touchgfx::meta::Nil
+    typedef touchgfx::meta::TypeList< start_screenView,
+            touchgfx::meta::TypeList< Data_screenView,
+            touchgfx::meta::TypeList< SD_Test_ScreenView,
+            touchgfx::meta::TypeList< Settings_ScreenView,
+            touchgfx::meta::Nil > > >
             > GeneratedViewTypes;
 
     /**
@@ -49,8 +58,11 @@ public:
      * A list of all presenter types. Must end with meta::Nil.
      * @note All presenter types used in the application MUST be added to this list!
      */
-    typedef touchgfx::meta::TypeList< screenPresenter,
-            touchgfx::meta::Nil
+    typedef touchgfx::meta::TypeList< start_screenPresenter,
+            touchgfx::meta::TypeList< Data_screenPresenter,
+            touchgfx::meta::TypeList< SD_Test_ScreenPresenter,
+            touchgfx::meta::TypeList< Settings_ScreenPresenter,
+            touchgfx::meta::Nil > > >
             > GeneratedPresenterTypes;
 
     /**
@@ -73,7 +85,7 @@ public:
 
     virtual void gotoStartScreen(FrontendApplication& app)
     {
-        app.gotoscreenScreenNoTransition();
+        app.gotostart_screenScreenNoTransition();
     }
 protected:
     FrontendHeapBase(touchgfx::AbstractPartition& presenters, touchgfx::AbstractPartition& views, touchgfx::AbstractPartition& transitions, FrontendApplication& app)

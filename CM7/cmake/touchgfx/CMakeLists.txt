@@ -20,9 +20,15 @@ set(TouchGFX_Include_Dirs
 # TouchGFX generated application sources
 set(TouchGFX_Src
     ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/common/FrontendApplication.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/data_screen_screen/Data_screenPresenter.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/data_screen_screen/Data_screenView.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/model/Model.cpp
-    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/screen_screen/screenPresenter.cpp
-    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/screen_screen/screenView.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/sd_test_screen_screen/SD_Test_ScreenPresenter.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/sd_test_screen_screen/SD_Test_ScreenView.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/settings_screen_screen/Settings_ScreenPresenter.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/settings_screen_screen/Settings_ScreenView.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/start_screen_screen/start_screenPresenter.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/start_screen_screen/start_screenView.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/ApplicationFontProvider.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/CachedFont.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/CompressedFontCache.cpp
@@ -30,7 +36,12 @@ set(TouchGFX_Src
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/FontCache.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_0.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_11.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_12.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_13.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_14.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_15.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_17.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_18.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_31.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_9.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_verdana_10_4bpp_0.cpp
@@ -45,9 +56,15 @@ set(TouchGFX_Src
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/UnmappedDataFont.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/VectorFontRendererBuffers.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/gui_generated/src/common/FrontendApplicationBase.cpp
-    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/gui_generated/src/screen_screen/screenViewBase.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/gui_generated/src/data_screen_screen/Data_screenViewBase.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/gui_generated/src/sd_test_screen_screen/SD_Test_ScreenViewBase.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/gui_generated/src/settings_screen_screen/Settings_ScreenViewBase.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/gui_generated/src/start_screen_screen/start_screenViewBase.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/BitmapDatabase.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/SVGDatabase.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_button_regular_height_50_medium_round_inactive.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_togglebutton_medium_round_text_off_normal.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_togglebutton_medium_round_text_on_light.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/texts/src/LanguageGb.cpp

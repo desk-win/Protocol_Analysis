@@ -10,6 +10,15 @@
       </Text>
     </TextGroup>
     <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_3AQV" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">系统设置</Translation>
+      </Text>
+      <Text Id="__SingleUse_F8G5" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">SD测试</Translation>
+      </Text>
+      <Text Id="__SingleUse_EOCW" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">数据采集</Translation>
+      </Text>
       <Text Id="__SingleUse_U5RV" Alignment="Right" TypographyId="Default">
         <Translation Language="GB">Let's go guy</Translation>
       </Text>

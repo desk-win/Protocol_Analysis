@@ -2,26 +2,12 @@
   "Application": {
     "Screens": [
       {
-        "Name": "screen",
-        "CanvasBufferSize": 12000,
+        "Name": "start_screen",
         "Components": [
           {
             "Type": "Box",
-            "Name": "box1",
-            "X": 207,
-            "Y": 107,
-            "Width": 242,
-            "Height": 373,
-            "Color": {
-              "Red": 252,
-              "Green": 167,
-              "Blue": 167
-            }
-          },
-          {
-            "Type": "Box",
             "Name": "box2",
-            "Width": 207,
+            "Width": 259,
             "Height": 107,
             "Color": {
               "Red": 56,
@@ -31,21 +17,9 @@
           },
           {
             "Type": "Box",
-            "Name": "box3",
-            "X": 207,
-            "Width": 242,
-            "Height": 107,
-            "Color": {
-              "Red": 209,
-              "Green": 33,
-              "Blue": 127
-            }
-          },
-          {
-            "Type": "Box",
             "Name": "box4",
             "Y": 107,
-            "Width": 207,
+            "Width": 259,
             "Height": 373,
             "Color": {
               "Red": 64,
@@ -56,9 +30,10 @@
           {
             "Type": "Box",
             "Name": "box5",
-            "X": 449,
-            "Width": 160,
-            "Height": 480,
+            "X": 259,
+            "Y": 107,
+            "Width": 266,
+            "Height": 373,
             "Color": {
               "Red": 204,
               "Green": 157,
@@ -68,9 +43,10 @@
           {
             "Type": "Box",
             "Name": "box6",
-            "X": 609,
-            "Width": 191,
-            "Height": 480,
+            "X": 525,
+            "Y": 107,
+            "Width": 275,
+            "Height": 373,
             "Color": {
               "Red": 136,
               "Green": 177,
@@ -78,53 +54,17 @@
             }
           },
           {
-            "Type": "Circle",
-            "Name": "circle1",
-            "X": 63,
-            "Y": 213,
-            "Width": 80,
-            "Height": 80,
+            "Type": "Box",
+            "Name": "box7",
+            "X": 259,
+            "Y": 3,
+            "Width": 541,
+            "Height": 104,
             "Color": {
-              "Red": 189,
-              "Green": 91,
-              "Blue": 91
-            },
-            "CenterX": 40.0,
-            "CenterY": 40.0,
-            "Radius": 40.0,
-            "EndAngle": 360.0,
-            "CapPrecision": "Butt"
-          },
-          {
-            "Type": "Shape",
-            "Name": "shape1",
-            "X": 288,
-            "Y": 163,
-            "Width": 80,
-            "Height": 80,
-            "Color": {
-              "Red": 43,
-              "Green": 158,
-              "Blue": 77
-            },
-            "Points": [
-              {
-                "X": 40.0
-              },
-              {
-                "X": 80.0,
-                "Y": 40.0
-              },
-              {
-                "X": 40.0,
-                "Y": 80.0
-              },
-              {
-                "Y": 40.0
-              }
-            ],
-            "XScale": 1.0,
-            "YScale": 1.0
+              "Red": 212,
+              "Green": 34,
+              "Blue": 34
+            }
           },
           {
             "Type": "TextArea",
@@ -167,9 +107,223 @@
             "Height": 50,
             "Pressed": "__generated\\alternate_theme_images_widgets_togglebutton_medium_round_text_on_light.png",
             "Released": "__generated\\alternate_theme_images_widgets_togglebutton_medium_round_text_off_normal.png"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabel1",
+            "X": 9,
+            "Y": 335,
+            "Width": 240,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_round_inactive.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_round_inactive.png",
+            "TextId": "__SingleUse_EOCW",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 106,
+              "Green": 255
+            },
+            "TextRotation": "0"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabel2",
+            "X": 270,
+            "Y": 335,
+            "Width": 240,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_round_inactive.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_round_inactive.png",
+            "TextId": "__SingleUse_F8G5",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 78,
+              "Green": 237,
+              "Blue": 5
+            },
+            "TextRotation": "0"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabel3",
+            "X": 542,
+            "Y": 335,
+            "Width": 240,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_round_inactive.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_round_inactive.png",
+            "TextId": "__SingleUse_3AQV",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 43,
+              "Green": 247,
+              "Blue": 2
+            },
+            "TextRotation": "0"
           }
         ],
-        "Interactions": []
+        "Interactions": [
+          {
+            "InteractionName": "Interaction1",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabel1"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "Data_screen"
+            }
+          },
+          {
+            "InteractionName": "Interaction2",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabel2"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "SD_Test_Screen"
+            }
+          },
+          {
+            "InteractionName": "Interaction3",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabel3"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "Settings_Screen"
+            }
+          }
+        ]
+      },
+      {
+        "Name": "Data_screen",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "box1",
+            "Width": 800,
+            "Height": 480
+          },
+          {
+            "Type": "Button",
+            "Name": "button1",
+            "Width": 240,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.png",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\medium_rounded_normal.json"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "Interaction1",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "button1"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "start_screen"
+            }
+          }
+        ]
+      },
+      {
+        "Name": "SD_Test_Screen",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "box1",
+            "Width": 800,
+            "Height": 480,
+            "Color": {
+              "Red": 56,
+              "Green": 194,
+              "Blue": 153
+            }
+          },
+          {
+            "Type": "Button",
+            "Name": "button1",
+            "Width": 240,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.png",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\medium_rounded_normal.json"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "Interaction1",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "button1"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "start_screen"
+            }
+          }
+        ]
+      },
+      {
+        "Name": "Settings_Screen",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "box1",
+            "Width": 800,
+            "Height": 480,
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "Button",
+            "Name": "button1",
+            "Width": 240,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.png",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\medium_rounded_normal.json"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "Interaction1",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "button1"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "start_screen"
+            }
+          }
+        ]
       }
     ],
     "CustomContainerDefinitions": [],
@@ -179,7 +333,7 @@
       "Height": 480
     },
     "SelectedColorDepth": 16,
-    "StartupScreenName": "screen",
+    "StartupScreenName": "start_screen",
     "SelectedStartupLanguage": "GB",
     "TouchGfxPath": "../Middlewares/ST/touchgfx",
     "UIPath": ".",

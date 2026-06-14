@@ -20,10 +20,19 @@
     <ClCompile Include="..\..\gui\src\common\FrontendApplication.cpp"/>
     <ClCompile Include="..\..\generated\gui_generated\src\common\FrontendApplicationBase.cpp"/>
     <ClCompile Include="..\..\gui\src\model\Model.cpp"/>
-    <ClCompile Include="..\..\gui\src\screen_screen\screenPresenter.cpp"/>
-    <ClCompile Include="..\..\gui\src\screen_screen\screenView.cpp"/>
-    <ClCompile Include="..\..\generated\gui_generated\src\screen_screen\screenViewBase.cpp"/>
     <ClCompile Include="..\..\generated\simulator\src\video\SoftwareMJPEGDecoder.cpp"/>
+    <ClCompile Include="..\..\gui\src\data_screen_screen\Data_screenPresenter.cpp"/>
+    <ClCompile Include="..\..\gui\src\data_screen_screen\Data_screenView.cpp"/>
+    <ClCompile Include="..\..\generated\gui_generated\src\data_screen_screen\Data_screenViewBase.cpp"/>
+    <ClCompile Include="..\..\gui\src\settings_screen_screen\Settings_ScreenPresenter.cpp"/>
+    <ClCompile Include="..\..\gui\src\settings_screen_screen\Settings_ScreenView.cpp"/>
+    <ClCompile Include="..\..\generated\gui_generated\src\settings_screen_screen\Settings_ScreenViewBase.cpp"/>
+    <ClCompile Include="..\..\gui\src\start_screen_screen\start_screenPresenter.cpp"/>
+    <ClCompile Include="..\..\gui\src\start_screen_screen\start_screenView.cpp"/>
+    <ClCompile Include="..\..\generated\gui_generated\src\start_screen_screen\start_screenViewBase.cpp"/>
+    <ClCompile Include="..\..\gui\src\sd_test_screen_screen\SD_Test_ScreenPresenter.cpp"/>
+    <ClCompile Include="..\..\gui\src\sd_test_screen_screen\SD_Test_ScreenView.cpp"/>
+    <ClCompile Include="..\..\generated\gui_generated\src\sd_test_screen_screen\SD_Test_ScreenViewBase.cpp"/>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(ApplicationRoot)\assets\texts\texts.xml"/>
@@ -172,11 +181,20 @@
     <ClInclude Include="..\..\generated\simulator\include\simulator\video\MJPEGDecoder.hpp"/>
     <ClInclude Include="..\..\gui\include\gui\model\Model.hpp"/>
     <ClInclude Include="..\..\gui\include\gui\model\ModelListener.hpp"/>
-    <ClInclude Include="..\..\gui\include\gui\screen_screen\screenPresenter.hpp"/>
-    <ClInclude Include="..\..\gui\include\gui\screen_screen\screenView.hpp"/>
-    <ClInclude Include="..\..\generated\gui_generated\include\gui_generated\screen_screen\screenViewBase.hpp"/>
     <ClInclude Include="..\..\generated\gui_generated\include\gui_generated\common\SimConstants.hpp"/>
     <ClInclude Include="..\..\generated\simulator\include\simulator\video\SoftwareMJPEGDecoder.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\data_screen_screen\Data_screenPresenter.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\data_screen_screen\Data_screenView.hpp"/>
+    <ClInclude Include="..\..\generated\gui_generated\include\gui_generated\data_screen_screen\Data_screenViewBase.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\settings_screen_screen\Settings_ScreenPresenter.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\settings_screen_screen\Settings_ScreenView.hpp"/>
+    <ClInclude Include="..\..\generated\gui_generated\include\gui_generated\settings_screen_screen\Settings_ScreenViewBase.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\start_screen_screen\start_screenPresenter.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\start_screen_screen\start_screenView.hpp"/>
+    <ClInclude Include="..\..\generated\gui_generated\include\gui_generated\start_screen_screen\start_screenViewBase.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\sd_test_screen_screen\SD_Test_ScreenPresenter.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\sd_test_screen_screen\SD_Test_ScreenView.hpp"/>
+    <ClInclude Include="..\..\generated\gui_generated\include\gui_generated\sd_test_screen_screen\SD_Test_ScreenViewBase.hpp"/>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="$(ApplicationRoot)\generated\simulator\touchgfx.rc"/>

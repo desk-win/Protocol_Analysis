@@ -7,22 +7,34 @@ KEEP extern const touchgfx::GlyphNode glyphs_FZSTK_TTF_28_4bpp[] FONT_TABLE_LOCA
     {     0, 0x0020,   0,   0,   0,   0,   7,   0,   0, 0x00 },
     {     0, 0x0027,   5,   8,  20,   1,   7,   0,   0, 0x00 },
     {    24, 0x003F,  13,  15,  15,   0,  13,   0,   0, 0x00 },
-    {   129, 0x004C,  18,  16,  16,   1,  19,   0,   0, 0x00 },
-    {   273, 0x004E,  18,  16,  16,   1,  20,   0,   0, 0x00 },
-    {   417, 0x0054,  19,  16,  16,   0,  19,   0,   0, 0x00 },
-    {   577, 0x0065,  15,  12,  12,   0,  15,   0,   0, 0x00 },
-    {   673, 0x0067,  15,  16,  12,   0,  16,   0,   0, 0x00 },
-    {   801, 0x006F,  14,  13,  13,   0,  15,   0,   0, 0x00 },
-    {   892, 0x0073,  14,  12,  12,   0,  14,   0,   0, 0x00 },
-    {   976, 0x0074,  12,  15,  15,   0,  12,   0,   0, 0x00 },
-    {  1066, 0x0075,  13,  12,  12,   1,  16,   0,   0, 0x00 },
-    {  1150, 0x0077,  21,  12,  12,   0,  21,   0,   0, 0x00 },
-    {  1282, 0x0078,  15,  13,  13,   0,  15,   0,   0, 0x00 },
-    {  1386, 0x0079,  14,  16,  12,   0,  14,   0,   0, 0x00 },
+    {   129, 0x0044,  17,  15,  15,   1,  19,   0,   0, 0x00 },
+    {   264, 0x004C,  18,  16,  16,   1,  19,   0,   0, 0x00 },
+    {   408, 0x004E,  18,  16,  16,   1,  20,   0,   0, 0x00 },
+    {   552, 0x0053,  16,  15,  15,   0,  16,   0,   0, 0x00 },
+    {   672, 0x0054,  19,  16,  16,   0,  19,   0,   0, 0x00 },
+    {   832, 0x0065,  15,  12,  12,   0,  15,   0,   0, 0x00 },
+    {   928, 0x0067,  15,  16,  12,   0,  16,   0,   0, 0x00 },
+    {  1056, 0x006F,  14,  13,  13,   0,  15,   0,   0, 0x00 },
+    {  1147, 0x0073,  14,  12,  12,   0,  14,   0,   0, 0x00 },
+    {  1231, 0x0074,  12,  15,  15,   0,  12,   0,   0, 0x00 },
+    {  1321, 0x0075,  13,  12,  12,   1,  16,   0,   0, 0x00 },
+    {  1405, 0x0077,  21,  12,  12,   0,  21,   0,   0, 0x00 },
+    {  1537, 0x0078,  15,  13,  13,   0,  15,   0,   0, 0x00 },
+    {  1641, 0x0079,  14,  16,  12,   0,  14,   0,   0, 0x00 },
     {     0, 0x4E16,  22,  21,  19,   3,  28,   0,   0, 0x00 },
     {   231, 0x4F60,  21,  20,  19,   3,  28,   0,   0, 0x00 },
     {     0, 0x597D,  25,  20,  18,   1,  28,   0,   0, 0x00 },
+    {     0, 0x636E,  24,  21,  19,   2,  28,   0,   0, 0x00 },
+    {   252, 0x6570,  25,  20,  19,   2,  28,   0,   0, 0x00 },
+    {     0, 0x6D4B,  22,  23,  20,   3,  28,   0,   0, 0x00 },
     {     0, 0x754C,  22,  25,  21,   3,  28,   0,   0, 0x00 },
+    {     0, 0x7CFB,  17,  23,  21,   5,  28,   0,   0, 0x00 },
+    {   207, 0x7EDF,  24,  22,  20,   2,  28,   0,   0, 0x00 },
+    {   471, 0x7F6E,  18,  21,  19,   6,  28,   0,   0, 0x00 },
+    {     0, 0x8BBE,  24,  20,  18,   2,  28,   0,   0, 0x00 },
+    {   240, 0x8BD5,  26,  24,  21,   1,  28,   0,   0, 0x00 },
+    {     0, 0x91C7,  22,  24,  21,   3,  28,   0,   0, 0x00 },
+    {   264, 0x96C6,  19,  24,  22,   5,  28,   0,   0, 0x00 },
     {     0, 0xFF0C,   5,   8,   4,   4,  28,   0,   0, 0x00 }
 };
 
@@ -36,7 +48,17 @@ KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_9[] FONT_GLYPH_LOCATION_FLA
 FONT_GLYPH_LOCATION_FLASH_PRAGMA
 KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_11[] FONT_GLYPH_LOCATION_FLASH_ATTRIBUTE;
 FONT_GLYPH_LOCATION_FLASH_PRAGMA
+KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_12[] FONT_GLYPH_LOCATION_FLASH_ATTRIBUTE;
+FONT_GLYPH_LOCATION_FLASH_PRAGMA
+KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_13[] FONT_GLYPH_LOCATION_FLASH_ATTRIBUTE;
+FONT_GLYPH_LOCATION_FLASH_PRAGMA
 KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_14[] FONT_GLYPH_LOCATION_FLASH_ATTRIBUTE;
+FONT_GLYPH_LOCATION_FLASH_PRAGMA
+KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_15[] FONT_GLYPH_LOCATION_FLASH_ATTRIBUTE;
+FONT_GLYPH_LOCATION_FLASH_PRAGMA
+KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_17[] FONT_GLYPH_LOCATION_FLASH_ATTRIBUTE;
+FONT_GLYPH_LOCATION_FLASH_PRAGMA
+KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_18[] FONT_GLYPH_LOCATION_FLASH_ATTRIBUTE;
 FONT_GLYPH_LOCATION_FLASH_PRAGMA
 KEEP extern const uint8_t unicodes_FZSTK_TTF_28_4bpp_31[] FONT_GLYPH_LOCATION_FLASH_ATTRIBUTE;
 FONT_SEARCHTABLE_LOCATION_FLASH_PRAGMA
@@ -53,13 +75,13 @@ KEEP extern const uint8_t* const unicodes_FZSTK_TTF_28_4bpp[] FONT_SEARCHTABLE_L
     unicodes_FZSTK_TTF_28_4bpp_9,
     0,
     unicodes_FZSTK_TTF_28_4bpp_11,
-    0,
-    0,
+    unicodes_FZSTK_TTF_28_4bpp_12,
+    unicodes_FZSTK_TTF_28_4bpp_13,
     unicodes_FZSTK_TTF_28_4bpp_14,
+    unicodes_FZSTK_TTF_28_4bpp_15,
     0,
-    0,
-    0,
-    0,
+    unicodes_FZSTK_TTF_28_4bpp_17,
+    unicodes_FZSTK_TTF_28_4bpp_18,
     0,
     0,
     0,
@@ -80,6 +102,6 @@ touchgfx::GeneratedFont& getFont_FZSTK_TTF_28_4bpp();
 
 touchgfx::GeneratedFont& getFont_FZSTK_TTF_28_4bpp()
 {
-    static touchgfx::GeneratedFont FZSTK_TTF_28_4bpp(glyphs_FZSTK_TTF_28_4bpp, 20, 33, 28, 0, 0, 4, 1, 0, 0, unicodes_FZSTK_TTF_28_4bpp, kerning_FZSTK_TTF_28_4bpp, 63, 0, 0, 0);
+    static touchgfx::GeneratedFont FZSTK_TTF_28_4bpp(glyphs_FZSTK_TTF_28_4bpp, 32, 33, 28, 0, 0, 4, 1, 0, 0, unicodes_FZSTK_TTF_28_4bpp, kerning_FZSTK_TTF_28_4bpp, 63, 0, 0, 0);
     return FZSTK_TTF_28_4bpp;
 }

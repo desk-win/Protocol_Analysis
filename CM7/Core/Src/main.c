@@ -20,20 +20,20 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
-#include "crc.h"
 #include "dma.h"
-#include "dma2d.h"
 #include "fatfs.h"
-#include "i2c.h"
-#include "ltdc.h"
-#include "sdmmc.h"
-#include "tim.h"
 #include "gpio.h"
-#include "fmc.h"
 #include "app_touchgfx.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "crc.h"
+#include "dma2d.h"
+#include "fmc.h"
+#include "i2c.h"
+#include "ltdc.h"
+#include "sdmmc.h"
+#include "tim.h"
 #include "delay.h"
 #include "lcd.h"
 #include "bsp_driver_sd.h"
@@ -152,7 +152,7 @@ Error_Handler();
   /* Initialize all configured peripherals */
   MX_DMA_Init();
   MX_GPIO_Init();
-  
+
   /* USER CODE BEGIN 2 */
   MX_FMC_Init();           /* SDRAM init MUST precede LTDC (framebuffer @ 0xD0000000) */
   MX_LTDC_Init();          /* LTDC reads from SDRAM — requires FMC already running */
