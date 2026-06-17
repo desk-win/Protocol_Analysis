@@ -32,7 +32,18 @@ void MX_SDMMC2_SD_Init(void)
 {
 
   /* USER CODE BEGIN SDMMC2_Init 0 */
-
+  /* HAL_SD_Init() blocks on SD NAND (stalls in SDMMC_GetCmdResp1).
+   * Init is done manually by sdnand_init() in the TouchGFX task.
+   * Fields are set here so hsd2 is configured before returning;
+   * CubeMX-generated code below is skipped (redundant, harmless).
+   * NOTE: kept inside USER CODE so CubeMX regen won't drop the return. */
+  hsd2.Instance = SDMMC2;
+  hsd2.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
+  hsd2.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+  hsd2.Init.BusWide = SDMMC_BUS_WIDE_4B;
+  hsd2.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+  hsd2.Init.ClockDiv = 4;
+  return;
   /* USER CODE END SDMMC2_Init 0 */
 
   /* USER CODE BEGIN SDMMC2_Init 1 */
@@ -44,7 +55,6 @@ void MX_SDMMC2_SD_Init(void)
   hsd2.Init.BusWide = SDMMC_BUS_WIDE_4B;
   hsd2.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
   hsd2.Init.ClockDiv = 4;
-  return;
   if (HAL_SD_Init(&hsd2) != HAL_OK)
   {
     Error_Handler();

@@ -1,5 +1,6 @@
 #include <gui/sd_test_screen_screen/SD_Test_ScreenView.hpp>
 #include <touchgfx/Color.hpp>
+#include <stdio.h>
 #include <touch.h>
 #include <bsp_driver_sd.h>
 #include <sdmmc.h>
@@ -155,8 +156,7 @@ static int sd_nand_full_test(void)
 
 SD_Test_ScreenView::SD_Test_ScreenView()
     : touchDotAdded(false), sdTestDone(false), sdTestResult(-1),
-      fatfsResult(-1), tickCount(0), sdStatusBarAdded(false),
-      capacityTextAdded(false)
+      fatfsResult(-1), tickCount(0), sdStatusBarAdded(false)
 {
     capacityBuf[0] = 0;
 }
@@ -178,12 +178,12 @@ void SD_Test_ScreenView::setupScreen()
     sdStatusBar.setPosition(0, 460, 200, 8);
     sdStatusBar.setVisible(false);
 
-    capacityText.setPosition(210, 452, 400, 24);
-    capacityText.setTypedText(TypedText(0));
-    capacityText.setWildcard(capacityBuf);
-    capacityText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
-    capacityText.setVisible(false);
-    capacityTextAdded = false;
+    /* Bind Designer-generated textArea1 to our buffer (base's textArea1Buffer
+     * is only 10 chars) and fix its size so long capacity strings aren't
+     * clipped by the Designer's resizeToCurrentText() on an empty buffer. */
+    textArea1.setWildcard(capacityBuf);
+    textArea1.setPosition(20, 200, 760, 40);
+    textArea1.invalidate();
 }
 
 void SD_Test_ScreenView::tearDownScreen()
@@ -261,40 +261,23 @@ void SD_Test_ScreenView::handleTickEvent()
 
             if (sdTestResult == 0)
             {
-                uint32_t total_kb = g_sd_card_info.LogBlockNbr / 2;
-                uint32_t free_kb_val = g_sd_free_kb;
-                touchgfx::Unicode::UnicodeChar* p = capacityBuf;
-                const char* s1 = "Total:";
-                while (*s1) *p++ = *s1++;
-                {
-                    char tmp[12];
-                    int len = 0;
-                    uint32_t v = total_kb / 1024;
-                    do { tmp[len++] = '0' + (v % 10); v /= 10; } while (v);
-                    for (int i = len - 1; i >= 0; i--) *p++ = tmp[i];
-                }
-                const char* s2 = "MB Free:";
-                while (*s2) *p++ = *s2++;
-                {
-                    char tmp[12];
-                    int len = 0;
-                    uint32_t v = free_kb_val / 1024;
-                    do { tmp[len++] = '0' + (v % 10); v /= 10; } while (v);
-                    for (int i = len - 1; i >= 0; i--) *p++ = tmp[i];
-                }
-                const char* s3 = "MB";
-                while (*s3) *p++ = *s3++;
-                *p = 0;
+                uint32_t total_mb = (g_sd_card_info.LogBlockNbr / 2) / 1024;
+                uint32_t free_mb  = g_sd_free_kb / 1024;
+                uint32_t used_mb  = total_mb - free_mb;
 
-                capacityText.invalidate();
-                capacityText.setWildcard(capacityBuf);
-                capacityText.setVisible(true);
-                if (!capacityTextAdded)
-                {
-                    add(capacityText);
-                    capacityTextAdded = true;
-                }
-                capacityText.invalidate();
+                /* C snprintf (supports %lu) then convert ASCII->Unicode.
+                 * TouchGFX Unicode::snprintf needs a UnicodeChar format and
+                 * has no %lu support, so this two-step is simpler. */
+                char tmp[50];
+                snprintf(tmp, sizeof(tmp),
+                    "Total:%lu MB  Free:%lu MB  Used:%lu MB",
+                    (unsigned long)total_mb, (unsigned long)free_mb,
+                    (unsigned long)used_mb);
+                touchgfx::Unicode::strncpy(capacityBuf, tmp,
+                    sizeof(capacityBuf) / sizeof(capacityBuf[0]));
+
+                textArea1.setWildcard(capacityBuf);
+                textArea1.invalidate();
             }
         }
     }

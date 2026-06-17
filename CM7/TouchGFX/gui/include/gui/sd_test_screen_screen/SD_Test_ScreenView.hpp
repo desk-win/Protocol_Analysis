@@ -31,9 +31,9 @@ protected:
     touchgfx::Box sdStatusBar;
     bool sdStatusBarAdded;
 
-    touchgfx::TextAreaWithOneWildcard capacityText;
-    bool capacityTextAdded;
-    touchgfx::Unicode::UnicodeChar capacityBuf[30];
+    /* Buffer for Designer-generated textArea1 (its own textArea1Buffer is only
+     * 10 chars — too small for "Total:X MB  Free:X MB  Used:X MB"). */
+    touchgfx::Unicode::UnicodeChar capacityBuf[50];
 };
 
 #endif // SD_TEST_SCREENVIEW_HPP

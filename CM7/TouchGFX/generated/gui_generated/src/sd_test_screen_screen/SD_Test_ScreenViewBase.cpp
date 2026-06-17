@@ -4,6 +4,7 @@
 #include <gui_generated/sd_test_screen_screen/SD_Test_ScreenViewBase.hpp>
 #include <touchgfx/Color.hpp>
 #include <images/BitmapDatabase.hpp>
+#include <texts/TextKeysAndLanguages.hpp>
 
 SD_Test_ScreenViewBase::SD_Test_ScreenViewBase() :
     buttonCallback(this, &SD_Test_ScreenViewBase::buttonCallbackHandler)
@@ -20,6 +21,15 @@ SD_Test_ScreenViewBase::SD_Test_ScreenViewBase() :
     button1.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID));
     button1.setAction(buttonCallback);
     add(button1);
+
+    textArea1.setXY(356, 214);
+    textArea1.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
+    textArea1.setLinespacing(0);
+    textArea1Buffer[0] = 0;
+    textArea1.setWildcard(textArea1Buffer);
+    textArea1.resizeToCurrentText();
+    textArea1.setTypedText(touchgfx::TypedText(T___SINGLEUSE_T387));
+    add(textArea1);
 }
 
 SD_Test_ScreenViewBase::~SD_Test_ScreenViewBase()
