@@ -20,12 +20,15 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
-#include "dcmi.h"
 #include "dma.h"
+#include "fdcan.h"
+#include "i2c.h"
+#include "spi.h"
+#include "usart.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "my_uart_check.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,7 +43,7 @@
 /*                             demonstration code based on hardware semaphore */
 /* This define is present in both CM7/CM4 projects                            */
 /* To comment when developping/debugging on a single core                     */
-#define DUAL_CORE_BOOT_SYNC_SEQUENCE
+// #define DUAL_CORE_BOOT_SYNC_SEQUENCE  // 调试/下载CM4单核时注释（CM4默认STOP等CM7唤醒，导致ST-LINK连不上报No device）
 
 #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
 #ifndef HSEM_ID_0
@@ -119,9 +122,13 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_DMA_Init();
-  MX_DCMI_Init();
+  MX_USART6_UART_Init();
+  MX_FDCAN1_Init();
+  MX_I2C4_Init();
+  MX_SPI6_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  My_UART_Init();   /* 启动 USART6 DMA + IDLE 空闲中断接收 */
   /* USER CODE END 2 */
 
   /* Init scheduler */

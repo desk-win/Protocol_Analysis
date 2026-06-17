@@ -152,7 +152,8 @@ Error_Handler();
   /* Initialize all configured peripherals */
   MX_DMA_Init();
   MX_GPIO_Init();
-
+  /* Call PreOsInit function */
+  MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
   MX_FMC_Init();           /* SDRAM init MUST precede LTDC (framebuffer @ 0xD0000000) */
   MX_LTDC_Init();          /* LTDC reads from SDRAM — requires FMC already running */
