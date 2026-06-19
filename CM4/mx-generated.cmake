@@ -5,45 +5,26 @@ set(MX_Defines_Syms
 	CORE_CM4 
 	USE_HAL_DRIVER 
 	STM32H747xx 
-	METAL_INTERNAL 
-	METAL_MAX_DEVICE_REGIONS=2 
-	RPMSG_BUFFER_SIZE=512 
-	VIRTIO_SLAVE_ONLY 
-	NO_ATOMIC_64_SUPPORT 
 	USE_PWR_LDO_SUPPLY
     $<$<CONFIG:Debug>:DEBUG>
 )
 # STM32CubeMX generated include paths
 set(MX_Include_Dirs
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/Target
-    ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/App
-    ${CMAKE_CURRENT_SOURCE_DIR}/OPENAMP
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/open-amp/lib/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/include/metal/compiler/gcc
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/open-amp/lib/rpmsg
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/CMSIS/Device/ST/STM32H7xx/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/CMSIS/Include
 )
 # STM32CubeMX generated application sources
 set(MX_Application_Src
-    ${CMAKE_CURRENT_SOURCE_DIR}/OPENAMP/mbox_hsem.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/OPENAMP/openamp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/OPENAMP/rsc_table.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/Target/bsp_driver_sd.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/Target/sd_diskio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/FATFS/App/fatfs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/main.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/gpio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/adc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/bdma.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/dcmi.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/dma.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/fdcan.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/i2c.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/sdmmc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/spi.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/tim.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/usart.c
@@ -76,13 +57,9 @@ set(STM32_Drivers_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c_ex.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_exti.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_fdcan.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_sdmmc.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_delayblock.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sd.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sd_ex.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc_ex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_adc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_adc_ex.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dcmi.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi_ex.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c
@@ -91,31 +68,6 @@ set(STM32_Drivers_Src
 
 # Drivers Midllewares
 
-set(OpenAmp_Src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/device.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/init.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/io.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/log.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/shmem.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/system/generic/condition.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/system/generic/generic_device.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/system/generic/generic_init.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/system/generic/generic_io.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/system/generic/generic_shmem.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/system/generic/time.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/open-amp/lib/remoteproc/remoteproc_virtio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/open-amp/lib/rpmsg/rpmsg.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/open-amp/lib/rpmsg/rpmsg_virtio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/open-amp/lib/virtio/virtio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/open-amp/lib/virtio/virtqueue.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/OpenAMP/libmetal/lib/system/generic/cortexm/sys.c
-)
-set(FatFs_Src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src/diskio.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src/ff.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src/ff_gen_drv.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Middlewares/Third_Party/FatFs/src/option/syscall.c
-)
 # Link directories setup
 set(MX_LINK_DIRS
 
@@ -124,7 +76,7 @@ set(MX_LINK_DIRS
 set (MX_LINK_LIBS 
     STM32_Drivers
     ${TOOLCHAIN_LINK_LIBRARIES}
-    OpenAmp	FatFs	
+    
     
 )
 # Interface library for includes and symbols
@@ -136,16 +88,6 @@ target_compile_definitions(stm32cubemx INTERFACE ${MX_Defines_Syms})
 add_library(STM32_Drivers OBJECT)
 target_sources(STM32_Drivers PRIVATE ${STM32_Drivers_Src})
 target_link_libraries(STM32_Drivers PUBLIC stm32cubemx)
-
-# Create OpenAmp static library
-add_library(OpenAmp OBJECT)
-target_sources(OpenAmp PRIVATE ${OpenAmp_Src})
-target_link_libraries(OpenAmp PUBLIC stm32cubemx)
-
-# Create FatFs static library
-add_library(FatFs OBJECT)
-target_sources(FatFs PRIVATE ${FatFs_Src})
-target_link_libraries(FatFs PUBLIC stm32cubemx)
 
 
 # Add STM32CubeMX generated application sources to the project

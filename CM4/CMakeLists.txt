@@ -67,6 +67,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/my_uart_check.c
     Core/Src/my_can_check.c
     Core/Src/my_dwt_count.c
+    Core/Src/adc_cpld.c
+    Core/Src/my_adc_try.c
 )
 
 # Link directories setup

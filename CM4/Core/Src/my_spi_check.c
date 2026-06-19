@@ -235,19 +235,20 @@ void CS_Switch_To_Exit(){
 **/
 void My_SPI_Init(uint8_t time_mode, My_SPI_Mode role, uint8_t cs_delay, uint16_t baudrate, uint8_t cs_polarity){
     //先将值赋到配置结构体上
-    spi_deploy.time_mode = time_mode;
-    spi_deploy.spi_role = role;
-    spi_deploy.cs_to_clk = cs_delay;
-    spi_deploy.baudrateprescaler = baudrate;
-    spi_deploy.spi_error.error_code = 0;
-    spi_deploy.cs_polarity = cs_polarity;
+    spi_deploy.time_mode = time_mode;           //数据读取状态
+    spi_deploy.spi_role = role;                 //主从模式状态
+    spi_deploy.cs_to_clk = cs_delay;            //cs延时
+    spi_deploy.baudrateprescaler = baudrate;    //波特率分频
+    spi_deploy.spi_error.error_code = 0;        //错误标识
+    spi_deploy.cs_polarity = cs_polarity;       //cs有效电平
     //如果当前为从机模式
     if (spi_deploy.spi_role == MY_SPI_SLAVE) {
         HAL_SPI_DeInit(&hspi6);
 
         hspi6.Init.Mode = SPI_MODE_SLAVE;
-        hspi6.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
+        hspi6.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;          //作为从机的时候cs只有低电平有效
         hspi6.Init.MasterSSIdleness = spi_deploy.cs_to_clk;     //配置cs信号到第一个时钟的延迟时间
+        hspi6.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
         SPI_Time_Mode(spi_deploy.time_mode);
 
         HAL_SPI_Init(&hspi6);
@@ -265,7 +266,8 @@ void My_SPI_Init(uint8_t time_mode, My_SPI_Mode role, uint8_t cs_delay, uint16_t
         else hspi6.Init.NSSPolarity = SPI_NSS_POLARITY_HIGH;
         SPI_Time_Mode(spi_deploy.time_mode);                               //配置CPOL / CPHA
         hspi6.Init.MasterSSIdleness = spi_deploy.cs_to_clk;                     //cs延迟
-        SPI_BaudRatePrescaler(spi_deploy.baudrateprescaler);          //速度
+        hspi6.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+        SPI_BaudRatePrescaler(spi_deploy.baudrateprescaler);          //频率分频
 
         HAL_SPI_Init(&hspi6);                                              //重新初始化
         CS_Switch_To_Output();
@@ -327,7 +329,7 @@ void My_SPI_Send(uint8_t *data, uint32_t len){
 }
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi){
-    if (hspi == &hspi6) {
+    if (hspi->Instance == hspi6.Instance) {
         CS_Pin_State(1);
         if_busy = 0;
     }

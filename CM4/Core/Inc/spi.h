@@ -33,9 +33,9 @@ extern "C" {
 /* USER CODE END Includes */
 
 extern SPI_HandleTypeDef hspi6;
-extern DMA_HandleTypeDef hdma_spi6_rx;
-/* USER CODE BEGIN Private defines */
 
+/* USER CODE BEGIN Private defines */
+extern DMA_HandleTypeDef hdma_spi6_rx;
 /* USER CODE END Private defines */
 
 void MX_SPI6_Init(void);

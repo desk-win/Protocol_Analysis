@@ -18,13 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "bdma.h"
+#include "dcmi.h"
 #include "dma.h"
-#include "fatfs.h"
-#include "fdcan.h"
 #include "i2c.h"
-#include "openamp.h"
-#include "sdmmc.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -32,11 +30,15 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "usart_printf.h"
+//#include "usart_printf.h"
 #include <stdint.h>
 #include <stdio.h>
 #include "my_i2c_check.h"
 #include "my_spi_check.h"
+#include "usart_printf.h"
+//#include "my_store.h"
+#include "my_adc_try.h"
+#include "adc_cpld.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -79,7 +81,7 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint32_t ndtr_1=0,ndtr_2=0;
 /* USER CODE END 0 */
 
 /**
@@ -90,7 +92,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
   
   /* USER CODE END 1 */
 
@@ -128,28 +129,32 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_BDMA_Init();
-  MX_USART1_UART_Init();
-  MX_TIM1_Init();
   MX_SPI6_Init();
   MX_USART6_UART_Init();
-  MX_FDCAN1_Init();
-  MX_SDMMC2_SD_Init();
-  MX_FATFS_Init();
   MX_I2C4_Init();
+  MX_DCMI_Init();
+  MX_TIM2_Init();
+  MX_ADC1_Init();
+  MX_USART1_UART_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   //my_i2c_init();
   
+  DCMI_DoubleBuffer_Start();
+  //Verify_SDNAND();
   
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  
+  
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+    
   /* USER CODE END 3 */
 }
 

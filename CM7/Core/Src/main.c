@@ -20,12 +20,19 @@
 #include "main.h"
 #include "bdma.h"
 #include "dma.h"
-#include "openamp.h"
+#include "sdmmc.h"
 #include "gpio.h"
+#include "fmc.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdio.h"
+#include "my_store.h"
+#include "stm32h747xx.h"
+#include "stm32h7xx_hal.h"
+#include "stm32h7xx_hal_gpio.h"
+#include <stdint.h>
+#include "NanoEdgeAI.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,13 +66,18 @@
 
 /* USER CODE BEGIN PV */
 
+//用来翻入输入数据的数组
+float_t input_signal[NEAI_INPUT_SIGNAL_LENGTH * NEAI_INPUT_AXIS_NUMBER];
+//模型输出每个分类类别的预测概率值
+float_t probabilities[NEAI_NUMBER_OF_CLASSES];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
-
+void SDRAM_Initialization_Sequence(SDRAM_HandleTypeDef *hsdram);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -150,12 +162,17 @@ Error_Handler();
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_BDMA_Init();
+  MX_FMC_Init();
+  MX_SDMMC2_SD_Init();
   /* USER CODE BEGIN 2 */
+  SDRAM_Initialization_Sequence(&hsdram1);
+  neai_classification_init();
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  
   while (1)
   {
     /* USER CODE END WHILE */
@@ -225,7 +242,54 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void SDRAM_Initialization_Sequence(SDRAM_HandleTypeDef *hsdram)
+{
+    __IO uint32_t tmpmrd = 0;
+    FMC_SDRAM_CommandTypeDef Command;
 
+    /* Step 1: 使能时钟信号 (CLK) -> 目标改为 BANK2 */
+    Command.CommandMode            = FMC_SDRAM_CMD_CLK_ENABLE; 
+    Command.CommandTarget          = FMC_SDRAM_CMD_TARGET_BANK2; // 修改为 BANK2
+    Command.AutoRefreshNumber      = 1;
+    Command.ModeRegisterDefinition = 0;
+    HAL_SDRAM_SendCommand(hsdram, &Command, 0x1000);
+
+    /* Step 2: 插入至少 100 微秒的延时 */
+    HAL_Delay(1); 
+
+    /* Step 3: 对所有 Bank 进行预充电 (Precharge All) -> 目标改为 BANK2 */
+    Command.CommandMode            = FMC_SDRAM_CMD_PALL; 
+    Command.CommandTarget          = FMC_SDRAM_CMD_TARGET_BANK2; // 修改为 BANK2
+    Command.AutoRefreshNumber      = 1;
+    Command.ModeRegisterDefinition = 0;
+    HAL_SDRAM_SendCommand(hsdram, &Command, 0x1000);
+
+    /* Step 4: 设置自动刷新 (Auto Refresh) -> 目标改为 BANK2 */
+    Command.CommandMode            = FMC_SDRAM_CMD_AUTOREFRESH_MODE; 
+    Command.CommandTarget          = FMC_SDRAM_CMD_TARGET_BANK2; // 修改为 BANK2
+    Command.AutoRefreshNumber      = 8; // 连续刷新 8 次
+    Command.ModeRegisterDefinition = 0;
+    HAL_SDRAM_SendCommand(hsdram, &Command, 0x1000);
+
+    /* Step 5: 配置模式寄存器 (Load Mode Register) -> 目标改为 BANK2 */
+    // 根据你当前的截图：
+    // CAS Latency = 3 (位 4-6 设为 011 -> 对应值 0x0030)
+    // Burst Length = 1 (位 0-2 设为 000)
+    tmpmrd = (uint32_t)0x0000 |  // Burst Length = 1
+                       0x0000 |  // Burst Type = Sequential
+                       0x0030 |  // CAS Latency = 3
+                       0x0200;   // Write Burst = Single
+                       
+    Command.CommandMode            = FMC_SDRAM_CMD_LOAD_MODE; 
+    Command.CommandTarget          = FMC_SDRAM_CMD_TARGET_BANK2; // 修改为 BANK2
+    Command.AutoRefreshNumber      = 1;
+    Command.ModeRegisterDefinition = tmpmrd;
+    HAL_SDRAM_SendCommand(hsdram, &Command, 0x1000);
+
+    /* Step 6: 设置刷新率计数器 */
+    // 保持之前计算的 1542 即可
+    HAL_SDRAM_ProgramRefreshRate(hsdram, 1542); 
+}
 /* USER CODE END 4 */
 
  /* MPU Configuration */
@@ -241,15 +305,25 @@ void MPU_Config(void)
   */
   MPU_InitStruct.Enable = MPU_REGION_ENABLE;
   MPU_InitStruct.Number = MPU_REGION_NUMBER0;
-  MPU_InitStruct.BaseAddress = 0x0;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_4GB;
-  MPU_InitStruct.SubRegionDisable = 0x87;
-  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.AccessPermission = MPU_REGION_NO_ACCESS;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+  MPU_InitStruct.BaseAddress = 0xD0000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_32MB;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL1;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
   MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
   MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0x38000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_64KB;
+  MPU_InitStruct.SubRegionDisable = 0x0;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
