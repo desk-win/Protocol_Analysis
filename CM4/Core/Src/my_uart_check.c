@@ -1,5 +1,6 @@
 #include "my_uart_check.h"
 #include "main.h"
+#include "my_dwt_count.h"
 #include "stm32_hal_legacy.h"
 #include "stm32h747xx.h"
 #include "stm32h7xx.h"
@@ -41,6 +42,9 @@
 *    └── 最大/最小/平均帧间隔统计
 *
 ***************************************************************************************/
+
+uint8_t if_uart_rxok = 0;
+
 
 My_UART_State now_uart_state;
 UART_Cycle_Tx_t cycle_tx_ctrl;
@@ -167,7 +171,7 @@ void My_UART_Send_Cycle(uint8_t *tx_data, uint32_t len, uint16_t occur, uint32_t
 void My_UART_LoopTask(void) {
     if (!cycle_tx_ctrl.is_running) return;
 
-    uint32_t current_tick = HAL_GetTick();          //记录当前时间戳
+    uint32_t current_tick = Get_Sys_us();          //记录当前时间戳
     
     // 时间间隔到达，且串口处于空闲状态
     if ((current_tick - cycle_tx_ctrl.last_tick >= cycle_tx_ctrl.interval_ms) && 
@@ -207,24 +211,24 @@ void Update_Error_Window(uint8_t if_error){
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart){
     if (huart->Instance == USART6) {
         uint32_t err = huart->ErrorCode;
-        uint8_t if_now_error = 0;
         if (err & HAL_UART_ERROR_FE) {
             uart_errors.frame_count++;   // 帧错误
-            if_now_error = 1;
+            uart_errors.frame_error = 1;
         }
         if (err & HAL_UART_ERROR_PE) {
             uart_errors.parity_count++;   // 奇偶校验错误
-            if_now_error = 1;
+            uart_errors.frame_error = 1;
         }
         if (err & HAL_UART_ERROR_ORE) {
             uart_errors.over_count++;  // 接收溢出错误
-            if_now_error = 1;
+            uart_errors.frame_error = 1;
         }
         if (err & HAL_UART_ERROR_NE) {
             uart_errors.noise_count++;   // 噪声错误
-            if_now_error = 1;
+            uart_errors.frame_error = 1;
         }
-        Update_Error_Window(if_now_error);
+        Update_Error_Window(uart_errors.frame_error);
+        uart_errors.frame_error = 0;
         // 发生硬件错误后，HAL库内部会关闭接收，必须手动重启DMA接收
         HAL_UARTEx_ReceiveToIdle_DMA(&huart6, rx_uart_buffer, UART_RXDMA_LEN);
     }
@@ -253,13 +257,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
     if (huart->Instance == USART6) {
         // Size 是硬件自动计算出来的本次收到的实际不定长数据长度
         //将接收到的数据压入环形缓冲区管理
+        uint32_t current_tick = Get_Sys_us();
         for (uint16_t i = 0; i < Size; i++) {
             UART_RingBuffer_Push(rx_uart_buffer[i]);
         }
         //触发接收完成通知标志
         now_uart_state.rx_notice = 1;
-        //记录当前时间
-        uint32_t current_tick = HAL_GetTick();      
+        //记录当前时间    
         if (uart_analysis.success_count == 0) {
             //这里是第一帧
             uart_analysis.min_interval = 0xFFFFFFFF;
@@ -267,9 +271,10 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
         }else {
             //两帧之间的时间间隔
             uint32_t interval = current_tick - uart_analysis.last_frame_tick;
+            //找出最大最小帧间隔
             if(interval > uart_analysis.max_interval) uart_analysis.max_interval = interval;
             if(interval < uart_analysis.min_interval) uart_analysis.min_interval = interval;
-
+            //总帧间隔
             uart_analysis.total_interval += interval;
             uart_analysis.avg_interval = uart_analysis.total_interval/uart_analysis.success_count;
 
@@ -285,8 +290,18 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
                 uart_analysis.error_count++;
                 Update_Error_Window(1);
             }
+        }else {
+            if (uart_errors.frame_error == 0) {
+                uart_analysis.success_count++;
+                //处理了一个无错误帧
+                Update_Error_Window(0);
+            }else if (uart_errors.frame_error == 1) {
+                uart_analysis.error_count++;
+                Update_Error_Window(1);
+            }
         }
-        
+
+        if_uart_rxok = 2;
         HAL_UARTEx_ReceiveToIdle_DMA(&huart6, rx_uart_buffer, UART_RXDMA_LEN);
     }
 }

@@ -59,7 +59,10 @@
 extern DMA_HandleTypeDef hdma_adc1;
 extern DMA_HandleTypeDef hdma_dcmi;
 extern DCMI_HandleTypeDef hdcmi;
+extern FDCAN_HandleTypeDef hfdcan1;
+extern I2C_HandleTypeDef hi2c4;
 extern DMA_HandleTypeDef hdma_spi6_rx;
+extern DMA_HandleTypeDef hdma_spi6_tx;
 extern SPI_HandleTypeDef hspi6;
 extern DMA_HandleTypeDef hdma_tim1_up;
 extern DMA_HandleTypeDef hdma_usart6_rx;
@@ -149,19 +152,6 @@ void UsageFault_Handler(void)
 }
 
 /**
-  * @brief This function handles System service call via SWI instruction.
-  */
-void SVC_Handler(void)
-{
-  /* USER CODE BEGIN SVCall_IRQn 0 */
-
-  /* USER CODE END SVCall_IRQn 0 */
-  /* USER CODE BEGIN SVCall_IRQn 1 */
-
-  /* USER CODE END SVCall_IRQn 1 */
-}
-
-/**
   * @brief This function handles Debug monitor.
   */
 void DebugMon_Handler(void)
@@ -172,33 +162,6 @@ void DebugMon_Handler(void)
   /* USER CODE BEGIN DebugMonitor_IRQn 1 */
 
   /* USER CODE END DebugMonitor_IRQn 1 */
-}
-
-/**
-  * @brief This function handles Pendable request for system service.
-  */
-void PendSV_Handler(void)
-{
-  /* USER CODE BEGIN PendSV_IRQn 0 */
-
-  /* USER CODE END PendSV_IRQn 0 */
-  /* USER CODE BEGIN PendSV_IRQn 1 */
-
-  /* USER CODE END PendSV_IRQn 1 */
-}
-
-/**
-  * @brief This function handles System tick timer.
-  */
-void SysTick_Handler(void)
-{
-  /* USER CODE BEGIN SysTick_IRQn 0 */
-
-  /* USER CODE END SysTick_IRQn 0 */
-
-  /* USER CODE BEGIN SysTick_IRQn 1 */
-
-  /* USER CODE END SysTick_IRQn 1 */
 }
 
 /******************************************************************************/
@@ -251,6 +214,34 @@ void DMA1_Stream3_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles FDCAN1 interrupt 0.
+  */
+void FDCAN1_IT0_IRQHandler(void)
+{
+  /* USER CODE BEGIN FDCAN1_IT0_IRQn 0 */
+
+  /* USER CODE END FDCAN1_IT0_IRQn 0 */
+  HAL_FDCAN_IRQHandler(&hfdcan1);
+  /* USER CODE BEGIN FDCAN1_IT0_IRQn 1 */
+
+  /* USER CODE END FDCAN1_IT0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles FDCAN1 interrupt 1.
+  */
+void FDCAN1_IT1_IRQHandler(void)
+{
+  /* USER CODE BEGIN FDCAN1_IT1_IRQn 0 */
+
+  /* USER CODE END FDCAN1_IT1_IRQn 0 */
+  HAL_FDCAN_IRQHandler(&hfdcan1);
+  /* USER CODE BEGIN FDCAN1_IT1_IRQn 1 */
+
+  /* USER CODE END FDCAN1_IT1_IRQn 1 */
+}
+
+/**
   * @brief This function handles EXTI line[15:10] interrupts.
   */
 void EXTI15_10_IRQHandler(void)
@@ -290,6 +281,20 @@ void DMA2_Stream0_IRQHandler(void)
   /* USER CODE BEGIN DMA2_Stream0_IRQn 1 */
 
   /* USER CODE END DMA2_Stream0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles FDCAN calibration unit interrupt.
+  */
+void FDCAN_CAL_IRQHandler(void)
+{
+  /* USER CODE BEGIN FDCAN_CAL_IRQn 0 */
+
+  /* USER CODE END FDCAN_CAL_IRQn 0 */
+  HAL_FDCAN_IRQHandler(&hfdcan1);
+  /* USER CODE BEGIN FDCAN_CAL_IRQn 1 */
+
+  /* USER CODE END FDCAN_CAL_IRQn 1 */
 }
 
 /**
@@ -334,6 +339,34 @@ void SPI6_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles I2C4 event interrupt.
+  */
+void I2C4_EV_IRQHandler(void)
+{
+  /* USER CODE BEGIN I2C4_EV_IRQn 0 */
+
+  /* USER CODE END I2C4_EV_IRQn 0 */
+  HAL_I2C_EV_IRQHandler(&hi2c4);
+  /* USER CODE BEGIN I2C4_EV_IRQn 1 */
+
+  /* USER CODE END I2C4_EV_IRQn 1 */
+}
+
+/**
+  * @brief This function handles I2C4 error interrupt.
+  */
+void I2C4_ER_IRQHandler(void)
+{
+  /* USER CODE BEGIN I2C4_ER_IRQn 0 */
+
+  /* USER CODE END I2C4_ER_IRQn 0 */
+  HAL_I2C_ER_IRQHandler(&hi2c4);
+  /* USER CODE BEGIN I2C4_ER_IRQn 1 */
+
+  /* USER CODE END I2C4_ER_IRQn 1 */
+}
+
+/**
   * @brief This function handles HSEM2 global interrupt.
   */
 void HSEM2_IRQHandler(void)
@@ -359,6 +392,20 @@ void BDMA_Channel0_IRQHandler(void)
   /* USER CODE BEGIN BDMA_Channel0_IRQn 1 */
 
   /* USER CODE END BDMA_Channel0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles BDMA channel1 global interrupt.
+  */
+void BDMA_Channel1_IRQHandler(void)
+{
+  /* USER CODE BEGIN BDMA_Channel1_IRQn 0 */
+
+  /* USER CODE END BDMA_Channel1_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_spi6_tx);
+  /* USER CODE BEGIN BDMA_Channel1_IRQn 1 */
+
+  /* USER CODE END BDMA_Channel1_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

@@ -41,6 +41,7 @@ typedef struct {
     uint32_t over_count;  // 溢出错误计数
     uint32_t noise_count;   // 噪声错误计数
     
+    uint8_t frame_error;        // 判断当前帧是否有错误
     // 滑动窗口连续错误率统计
     uint8_t error_history[ERROR_WINDOW_SIZE];    
     uint8_t window_index;       //窗口指针
@@ -57,10 +58,16 @@ typedef struct {
     uint32_t success_count;    // 成功接收的有效帧计数
     uint32_t avg_interval;     // 平均帧间隔 (ms)
     
+
     uint8_t form_head;          // 帧头
     uint8_t form_tail;          // 帧尾
     uint32_t error_count;       // 帧完整性错误计数
 } UART_Pact_t;
+
+extern uint8_t if_uart_rxok;
+extern UART_ErrorStats_t uart_errors;
+extern UART_Pact_t uart_analysis;
+
 
 void My_UART_Init(void);
 HAL_StatusTypeDef UART_Param_Change(uint32_t baud, uint32_t data_len, uint32_t stop_bits, uint32_t parity, uint32_t flow_ctrl);
@@ -69,5 +76,6 @@ void My_UART_Send_Cycle(uint8_t *tx_data, uint32_t len, uint16_t occur, uint32_t
 void My_UART_LoopTask(void);
 void Update_Error_Window(uint8_t if_error);
 uint8_t Check_Form(uint8_t *data, uint32_t len, UART_Pact_t form_data);
+uint32_t My_UART_Read_RingBuffer(uint8_t *pDest, uint32_t len);
 
 #endif

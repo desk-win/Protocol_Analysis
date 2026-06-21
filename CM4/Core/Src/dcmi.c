@@ -74,13 +74,14 @@ void HAL_DCMI_MspInit(DCMI_HandleTypeDef* dcmiHandle)
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOE_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
     /**DCMI GPIO Configuration
     PB6     ------> DCMI_D5
     PC11     ------> DCMI_D4
     PB7     ------> DCMI_VSYNC
-    PB9     ------> DCMI_D7
-    PB8     ------> DCMI_D6
+    PE5     ------> DCMI_D6
+    PE6     ------> DCMI_D7
     PC8     ------> DCMI_D2
     PC9     ------> DCMI_D3
     PC7     ------> DCMI_D1
@@ -103,12 +104,12 @@ void HAL_DCMI_MspInit(DCMI_HandleTypeDef* dcmiHandle)
     GPIO_InitStruct.Alternate = GPIO_AF13_DCMI;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_8;
+    GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF13_DCMI;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_4;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -137,7 +138,7 @@ void HAL_DCMI_MspInit(DCMI_HandleTypeDef* dcmiHandle)
     __HAL_LINKDMA(dcmiHandle,DMA_Handle,hdma_dcmi);
 
     /* DCMI interrupt Init */
-    HAL_NVIC_SetPriority(DCMI_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(DCMI_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(DCMI_IRQn);
   /* USER CODE BEGIN DCMI_MspInit 1 */
 
@@ -160,8 +161,8 @@ void HAL_DCMI_MspDeInit(DCMI_HandleTypeDef* dcmiHandle)
     PB6     ------> DCMI_D5
     PC11     ------> DCMI_D4
     PB7     ------> DCMI_VSYNC
-    PB9     ------> DCMI_D7
-    PB8     ------> DCMI_D6
+    PE5     ------> DCMI_D6
+    PE6     ------> DCMI_D7
     PC8     ------> DCMI_D2
     PC9     ------> DCMI_D3
     PC7     ------> DCMI_D1
@@ -169,10 +170,12 @@ void HAL_DCMI_MspDeInit(DCMI_HandleTypeDef* dcmiHandle)
     PA6     ------> DCMI_PIXCLK
     PA4     ------> DCMI_HSYNC
     */
-    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_9|GPIO_PIN_8);
+    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_6|GPIO_PIN_7);
 
     HAL_GPIO_DeInit(GPIOC, GPIO_PIN_11|GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_7
                           |GPIO_PIN_6);
+
+    HAL_GPIO_DeInit(GPIOE, GPIO_PIN_5|GPIO_PIN_6);
 
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_6|GPIO_PIN_4);
 

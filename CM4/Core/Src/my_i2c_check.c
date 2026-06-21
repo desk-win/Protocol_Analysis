@@ -12,6 +12,7 @@
 #include "my_dwt_count.h"
 
 
+
 /************************************目前实现的功能************************************
 
 *主机模式：
@@ -49,6 +50,8 @@
 *    └── 传输成功率统计
 
 *************************************************************************************/
+
+uint8_t if_inexti = 0;
 
 
 I2C_Data my_i2c_data;								//全局数据内容结构体
@@ -173,8 +176,8 @@ void My_I2C_Init(I2C_Mode now_mode, uint8_t address_mode, uint8_t address_7bit, 
 	hi2c4.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;				//双地址模式，一般没有用到的
 	hi2c4.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;				//广播模式，一般不用用到
 	//当stretch为1的时候开启时钟拉伸，0的时候关闭时钟拉伸
-	if(stretch)	hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-	else hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_ENABLE;
+	// if(stretch)	hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+	// else hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_ENABLE;
 	//主机模式
 	if (now_mode == MY_I2C_MASTER) {
 		my_i2c_deploy.my_i2c_mode = MY_I2C_MASTER;
@@ -197,7 +200,7 @@ void My_I2C_Init(I2C_Mode now_mode, uint8_t address_mode, uint8_t address_7bit, 
 			my_i2c_deploy.my_address_7bit = address_7bit;
 
 			hi2c4.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-			hi2c4.Init.OwnAddress1 = address_7bit<<1;					//7位地址需要位移
+			hi2c4.Init.OwnAddress1 = address_7bit << 1;					
 			hi2c4.Init.OwnAddress2 = 0;
 		}else {
 			my_i2c_deploy.address_mode = 10;
@@ -349,7 +352,9 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 			my_i2c_data.mode = I2C_SLAVE_RX;
 			my_i2c_data.i2c_slave_rxlen = 0;
 			//打开接收中断
+		
 			HAL_I2C_Slave_Seq_Receive_IT(hi2c, &my_i2c_data.i2c_slave_rxdata[my_i2c_data.i2c_slave_rxlen], 1, I2C_FIRST_FRAME);
+		
 		}
 		//如果主机要接收数据
 		if(TransferDirection == I2C_DIRECTION_RECEIVE){
@@ -365,6 +370,8 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 //前面接收一个数据后会进入这个回调函数
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
 	if (hi2c->Instance == hi2c4.Instance) {
+		I2C_PutData_To_Buffer();
+		//重新开启监听模式
 		now_frame.byte_count++;				//一帧字节数加1
 		//判断是不是第一个字节
 		if(now_frame.if_first_byte == 0){
@@ -401,6 +408,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c){
 		}
 		I2C_PutData_To_Buffer();
 		//重新开启监听模式
+		if_inexti = 2;
 		HAL_I2C_EnableListen_IT(&hi2c4);
 	}
 

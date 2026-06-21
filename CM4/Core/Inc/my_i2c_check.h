@@ -5,7 +5,7 @@
 #include "stm32h7xx_hal.h"
 #include "i2c.h"
 #include "stdlib.h"
-//#include "usart_printf.h"
+#include "usart_printf.h"
 #include <math.h>
 #include <stdint.h>
 
@@ -15,6 +15,8 @@
 
 extern uint8_t check;
 extern uint8_t count;
+extern uint8_t if_inexti;
+
 
 //I2C模式
 typedef enum{

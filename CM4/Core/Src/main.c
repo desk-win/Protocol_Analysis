@@ -18,10 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "FreeRTOS.h"
+#include "cmsis_os2.h"
 #include "adc.h"
 #include "bdma.h"
 #include "dcmi.h"
 #include "dma.h"
+#include "fdcan.h"
 #include "i2c.h"
 #include "spi.h"
 #include "tim.h"
@@ -36,9 +39,9 @@
 #include "my_i2c_check.h"
 #include "my_spi_check.h"
 #include "usart_printf.h"
-//#include "my_store.h"
 #include "my_adc_try.h"
 #include "adc_cpld.h"
+#include "my_dwt_count.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -75,13 +78,26 @@
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint32_t ndtr_1=0,ndtr_2=0;
+
+uint8_t tx_uart_data[4] = {0x2C,0x56,0x78,0x3F};
+uint8_t rx_uart_data[4];
+
+//通过这个全局枚举类型来选择使用哪种协议
+typedef enum{
+  Analyse_SPI_Mode,
+  Analyse_I2C_Mode,
+  Analyse_UART_Mode,
+  Anlayse_CAN_Mode
+} Analyse_Mode;
+
+extern Analyse_Mode my_analyse_mode;
 /* USER CODE END 0 */
 
 /**
@@ -137,13 +153,24 @@ int main(void)
   MX_ADC1_Init();
   MX_USART1_UART_Init();
   MX_TIM1_Init();
+  MX_FDCAN1_Init();
   /* USER CODE BEGIN 2 */
-  //my_i2c_init();
+  My_DWT_Init();
+  /*************************************测试代码***********************************/
   
-  DCMI_DoubleBuffer_Start();
-  //Verify_SDNAND();
+  //My_I2C_Init(MY_I2C_SLAVE, 7, 0x78, 0x00, 0, 100000);
+  //Switch_SPI_Mode(MY_SPI_SLAVE);
   
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -154,7 +181,19 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    
+    // if (if_uart_rxok == 2) {
+    //   if_uart_rxok = 0;
+    //   My_UART_Read_RingBuffer(rx_uart_data, 4);
+    //   printf("%02X %02X %02X %02X\r\n",rx_uart_data[0],rx_uart_data[1],rx_uart_data[2],rx_uart_data[3]);
+      
+    // }
+    // if (if_inexti==2) {
+    //   if_inexti = 0;
+    //   I2C_RangeBuffer_Read(rx_i2c_data,4);
+    //   printf("%02X %02X %02X %02X\r\n",rx_i2c_data[0],rx_i2c_data[1],rx_i2c_data[2],rx_i2c_data[3]);
+    // }
+    //HAL_Delay(1000);
+  }
   /* USER CODE END 3 */
 }
 

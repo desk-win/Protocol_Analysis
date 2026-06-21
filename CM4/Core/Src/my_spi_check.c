@@ -1,4 +1,5 @@
 #include "my_spi_check.h"
+#include "cmsis_os2.h"
 #include "my_dwt_count.h"
 #include "spi.h"
 #include "stm32_hal_legacy.h"
@@ -62,7 +63,7 @@
 *   所有的协议层分析都是在作为从机的时候使用的。使用的接收发送函数是HAL_SPI_TransmitReceive_DMA
 *   因为在实测的时候，软件cs在触发外部中断的时候才开启HAL_SPI_TransmitReceive_DMA的话
 *   会错过数据，所以在初始化的时候就先开启接收中断然后关闭spi外设，在接收到cs片选信号的时候
-*   才开启外设。接收到的数据先放在rx_spi_buffer里面，然后再存入rx_range_buffer.range_buffer
+*   才开启外设。接收到的数据先放在rx_spi_buffer里面，然后再存入spi_range_buffer.range_buffer
 *
 *   错误检测和协议分析：
 *   错误检测使用的的hal库自己的HAL_SPI_ErrorCallback，后面如果要加入什么功能再添加进去。
@@ -70,17 +71,16 @@
 *   得到传输成功率，调用spi_analyse.spi_frame_gap得到帧间隔
 ******************************************************************************/
 
-uint8_t rx_spi_buffer[DMA_BUFFER_LEN];
-uint8_t tx_spi_buffer[DMA_BUFFER_LEN];
+__attribute__((section(".RAM_D3"))) uint8_t rx_spi_buffer[DMA_BUFFER_LEN];
+__attribute__((section(".RAM_D3"))) uint8_t tx_spi_buffer[DMA_BUFFER_LEN];
 
 uint8_t if_busy = 0;                            //作为主机发送数据的时候检查是否发送完成标志位
 volatile uint8_t if_rx_finish = 0;              //全局变量用来反应接收是否完成（作为从机的时候使用），0表示未完成
 My_SPI_Error spi_error_code;                    //这个结构体用来记录各种错误
 My_SPI_Deploy spi_deploy;
-SPI_Range_Buffer rx_range_buffer;               //用来记录接收环形缓冲区状态
-My_SPI_Analyse spi_analyse;
-
-
+SPI_Range_Buffer spi_range_buffer;               //用来记录接收环形缓冲区状态
+My_SPI_Analyse spi_analyse[20] = {0};
+uint8_t analyse_index = 0;                      //spi_analyse[20]结构体数组的索引
 /****************************************工具函数*************************************/
 /**
 *   @brief 作为主机时cs引脚状态函数
@@ -101,13 +101,13 @@ void CS_Pin_State(uint8_t level){
 **/
 uint8_t SPI_RangeBuffer_Wirte(uint8_t data){
     uint8_t if_cover = 0;
-    if ((rx_range_buffer.buffer_head + 1)%SPI_RANGE_BUFFER_LEN == rx_range_buffer.buffer_tail) {
+    if ((spi_range_buffer.buffer_head + 1)%SPI_RANGE_BUFFER_LEN == spi_range_buffer.buffer_tail) {
         //如果缓冲区满了，丢掉最老的一个数据
-        rx_range_buffer.buffer_tail = (rx_range_buffer.buffer_tail + 1)%SPI_RANGE_BUFFER_LEN;
+        spi_range_buffer.buffer_tail = (spi_range_buffer.buffer_tail + 1)%SPI_RANGE_BUFFER_LEN;
         if_cover = 1;
     }
-    rx_range_buffer.range_buffer[rx_range_buffer.buffer_head] = data;
-    rx_range_buffer.buffer_head = (rx_range_buffer.buffer_head + 1)%SPI_RANGE_BUFFER_LEN;
+    spi_range_buffer.range_buffer[spi_range_buffer.buffer_head] = data;
+    spi_range_buffer.buffer_head = (spi_range_buffer.buffer_head + 1)%SPI_RANGE_BUFFER_LEN;
     return if_cover;
 }
 
@@ -120,13 +120,13 @@ uint8_t SPI_RangeBuffer_Wirte(uint8_t data){
 uint8_t SPI_RangeBuffer_Read(uint8_t *data, uint32_t data_len){
     uint8_t if_empty = 1;
     uint32_t data_index = 0;                //索引
-    if (rx_range_buffer.buffer_tail != rx_range_buffer.buffer_head) {
+    if (spi_range_buffer.buffer_tail != spi_range_buffer.buffer_head) {
         //当缓冲区里面还有数据的时候
-        while (rx_range_buffer.buffer_tail != rx_range_buffer.buffer_head) {
-            data[data_index] = rx_range_buffer.range_buffer[rx_range_buffer.buffer_tail];
+        while (spi_range_buffer.buffer_tail != spi_range_buffer.buffer_head) {
+            data[data_index] = spi_range_buffer.range_buffer[spi_range_buffer.buffer_tail];
             data_index++;
             if(data_index >= data_len) break;
-            rx_range_buffer.buffer_tail = (rx_range_buffer.buffer_tail + 1)%SPI_RANGE_BUFFER_LEN;
+            spi_range_buffer.buffer_tail = (spi_range_buffer.buffer_tail + 1)%SPI_RANGE_BUFFER_LEN;
         }
     }else {
         if_empty = 0;
@@ -134,19 +134,31 @@ uint8_t SPI_RangeBuffer_Read(uint8_t *data, uint32_t data_len){
     return if_empty;
 }
 
-/**
-*   @brief 通过判断if_rx_finish标志位来判断是否完成一次接收，并将数据放入环形缓冲区
-***/
-void SPI_PutData_To_Buffer(){
-    if (if_rx_finish) {
-        //当一次接收完成
-        uint32_t this_data_len = (DMA_BUFFER_LEN - __HAL_DMA_GET_COUNTER(&hdma_spi6_rx));       //数据长度
-        uint32_t data_index = 0;                                
-        for (data_index = 0; data_index < this_data_len; data_index++) {
-            SPI_RangeBuffer_Wirte(rx_spi_buffer[data_index]);
-        }
-        if_rx_finish = 0;               //表示现在数据已经放入环形缓冲区里面了
+void SPI_DMAStop_Manual(SPI_HandleTypeDef *hspi)
+{
+    // 1. 关闭DMA stream
+    if (hspi->hdmarx != NULL)
+    {
+        HAL_DMA_Abort(hspi->hdmarx);
     }
+    if (hspi->hdmatx != NULL)
+    {
+        HAL_DMA_Abort(hspi->hdmatx);
+    }
+
+    // 2. 关闭SPI的DMA请求
+    CLEAR_BIT(hspi->Instance->CFG1, SPI_CFG1_RXDMAEN | SPI_CFG1_TXDMAEN);
+
+    // 3. 等待SPI不忙，然后关闭SPI
+    while (HAL_IS_BIT_SET(hspi->Instance->SR, SPI_SR_EOT));
+    __HAL_SPI_DISABLE(hspi);
+    
+    // 4. 清除FIFO
+    SET_BIT(hspi->Instance->CR1, SPI_CR1_CSUSP);
+    
+    // 5. 恢复HAL状态机，否则下次调用HAL函数会返回HAL_BUSY
+    hspi->State = HAL_SPI_STATE_READY;
+    hspi->ErrorCode = HAL_SPI_ERROR_NONE;
 }
 
 /*************************************配置更改和模式切换**************************************/
@@ -217,7 +229,7 @@ void CS_Switch_To_Exit(){
     GPIO_InitTypeDef CS_Pin_Struct={0};
     CS_Pin_Struct.Pin = GPIO_PIN_10;
     CS_Pin_Struct.Mode = GPIO_MODE_IT_RISING_FALLING;
-    CS_Pin_Struct.Pull = GPIO_PULLUP;
+    CS_Pin_Struct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOG, &CS_Pin_Struct);
     //开启外部中断
     HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
@@ -226,12 +238,9 @@ void CS_Switch_To_Exit(){
 /**
 *   @brief 初始化spi操作，配置的有有效数据的4个模式、主从模式、cs信号到第一个时钟边沿的延时时间、
 *   时钟频率、cs引脚有效电平（作为主机的时候配置）。使用软件cs，主机的时候为推挽输出，从机的时候为
-*   外部中断，双边沿触发
-*   @param time_mode:配置CPOL / CPHA
-*   @param role:此时spi的主从模式
-*   @param cs_delay:配置cs引脚到第一个时钟的间隔，取值0~15
-*   @param baudrate:配置时钟分频，取值为2、4、8、16、32、64、128、256
-*   @param cs_polarity:cs引脚有效电平，0为低电平有效，1为高电平有效
+*   外部中断，双边沿触发。
+*   为了方便和屏幕对接，传入参数改为void，直接通过更改全局结构体spi_deploy里面的time_mode、spi_role、
+*   cs_to_clk、baudrateprescaler、spi_error.error_code、cs_polarity参数来进行配置
 **/
 void My_SPI_Init(uint8_t time_mode, My_SPI_Mode role, uint8_t cs_delay, uint16_t baudrate, uint8_t cs_polarity){
     //先将值赋到配置结构体上
@@ -254,9 +263,6 @@ void My_SPI_Init(uint8_t time_mode, My_SPI_Mode role, uint8_t cs_delay, uint16_t
         HAL_SPI_Init(&hspi6);
         //在初始化的时候就开启了接收发送中断
         HAL_SPI_TransmitReceive_DMA(&hspi6, tx_spi_buffer, rx_spi_buffer, DMA_BUFFER_LEN);
-        //在开启中断之后先关闭外设
-        __HAL_SPI_DISABLE(&hspi6);
-        //开启外部中断
         CS_Switch_To_Exit();
     }else if (spi_deploy.spi_role == MY_SPI_MASTER) {                           //如果为主机模式
         HAL_SPI_DeInit(&hspi6);                                           //反初始化
@@ -280,7 +286,7 @@ void My_SPI_Init(uint8_t time_mode, My_SPI_Mode role, uint8_t cs_delay, uint16_t
 **/
 void Switch_SPI_Mode(My_SPI_Mode spi_mode){
     //关闭传输和解除配置
-    HAL_SPI_DMAStop(&hspi6);
+    SPI_DMAStop_Manual(&hspi6);
     HAL_SPI_DeInit(&hspi6);
     //保留原来的配置
     SPI_Time_Mode(spi_deploy.time_mode);
@@ -307,11 +313,12 @@ void Switch_SPI_Mode(My_SPI_Mode spi_mode){
     if (spi_deploy.spi_role == MY_SPI_SLAVE) {
         //预开启接收中断
         HAL_SPI_TransmitReceive_DMA(&hspi6, tx_spi_buffer, rx_spi_buffer, DMA_BUFFER_LEN);
-        __HAL_SPI_DISABLE(&hspi6);
     }
 }
 
 /*****************************************主机模式***************************************/
+
+
 
 /**
 *   @brief 当被配置为主机模式的时候，使用这个函数发送数据,只负责发送
@@ -322,7 +329,8 @@ void My_SPI_Send(uint8_t *data, uint32_t len){
     if (spi_deploy.spi_role == MY_SPI_MASTER) {
         if (if_busy == 0) {
             if_busy = 1;
-            CS_Pin_State(0);
+            if (spi_deploy.cs_polarity == 0) CS_Pin_State(0);
+            else CS_Pin_State(1);
             HAL_SPI_Transmit_IT(&hspi6, data, len);
         }
     }
@@ -330,7 +338,8 @@ void My_SPI_Send(uint8_t *data, uint32_t len){
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi){
     if (hspi->Instance == hspi6.Instance) {
-        CS_Pin_State(1);
+        if (spi_deploy.cs_polarity == 0) CS_Pin_State(1);
+        else CS_Pin_State(0);
         if_busy = 0;
     }
 }
@@ -345,7 +354,8 @@ void My_SPI_SendReceive(uint8_t *tx_data, uint8_t *rx_data, uint16_t len){
     if (spi_deploy.spi_role == MY_SPI_MASTER) {
         if (if_busy == 0) {
             if_busy = 1;
-            CS_Pin_State(0);
+            if (spi_deploy.cs_polarity == 0) CS_Pin_State(0);
+            else CS_Pin_State(1);
             HAL_SPI_TransmitReceive_IT(&hspi6, tx_data, rx_data, len);
         }
     }
@@ -355,50 +365,78 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
     if (hspi == &hspi6) {
         //当作为主机的时候
         if (spi_deploy.spi_role == MY_SPI_MASTER) {
-            CS_Pin_State(1);
+            if (spi_deploy.cs_polarity == 0) CS_Pin_State(1);
+            else CS_Pin_State(0);
             if_busy = 0;
         }else if(spi_deploy.spi_role == MY_SPI_SLAVE){         //作为从机的时候
             //接收完一段DMA_BUFFER_LEN长的数据之后溢出，重新开启接收中断
+            SPI_PutData_To_Buffer();
             HAL_SPI_TransmitReceive_DMA(&hspi6, tx_spi_buffer, rx_spi_buffer, DMA_BUFFER_LEN);
         }
     }
 }
 
 /*****************************************从机模式**************************************/
+
+/**
+*   @brief 通过判断if_rx_finish标志位来判断是否完成一次接收，并将数据放入环形缓冲区
+***/
+uint8_t SPI_PutData_To_Buffer(){
+    if (if_rx_finish) {
+        //当一次接收完成
+        uint32_t this_data_len = (DMA_BUFFER_LEN - __HAL_DMA_GET_COUNTER(&hdma_spi6_rx));       //数据长度
+        uint32_t data_index = 0;                                
+        for (data_index = 0; data_index < this_data_len; data_index++) {
+            SPI_RangeBuffer_Wirte(rx_spi_buffer[data_index]);
+        }
+        if_rx_finish = 0;               //表示现在数据已经放入环形缓冲区里面了
+        return 1;
+    }
+    return 0;
+}
+
+
 //当配置为从机的时候，在外部中断里面接收片选信号并开始接收数据
-//当作为从机的时候就不用接收中断了，外部中断就是接收中断
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
     if (GPIO_Pin == GPIO_PIN_10) {
         if (spi_deploy.spi_role == MY_SPI_SLAVE) {
             //在收到片选信号之后开启spi外设
             if (HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_10) == GPIO_PIN_RESET) {
-                spi_analyse.cs_low_tick = Get_Sys_us();         //记录cs引脚拉低的时刻
-                __HAL_SPI_ENABLE(&hspi6);
-            }else {
-                HAL_SPI_DMAStop(&hspi6);        //在结束片选之后关闭接收
+                analyse_index++;
+                spi_analyse[analyse_index].cs_low_tick = Get_Sys_us();         //记录cs引脚拉低的时刻
+                
+            }else if(HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_10) == GPIO_PIN_SET){ 
                 //cs脉冲间隔
-                spi_analyse.cs_gap_tick = Get_Sys_us() - spi_analyse.cs_low_tick; 
-                //统计总帧数、成功失败帧数      
-                spi_analyse.spi_total_frame++;
+                spi_analyse[analyse_index].cs_hight_tick = Get_Sys_us();
+                SPI_DMAStop_Manual(&hspi6);        //在结束片选之后关闭接收
+                
+                //统计总帧数、成功失败帧数  
+                spi_analyse[analyse_index].spi_total_frame = analyse_index;
                 if (spi_deploy.spi_error.error_code == 0) {
-                    spi_analyse.spi_success_frame++;
+                    spi_analyse[0].spi_success_frame++;
+                    spi_analyse[analyse_index].spi_success_frame = spi_analyse[0].spi_success_frame;
                 }else {
-                    spi_analyse.spi_fail_frame++;
+                    spi_analyse[0].spi_fail_frame++;
+                    spi_analyse[analyse_index].spi_fail_frame = spi_analyse[0].spi_fail_frame;
                 }
                 //计算成功率
-                spi_analyse.transmit_success_rate = ((float_t)spi_analyse.spi_success_frame/spi_analyse.spi_total_frame);
-                //获取帧间隔
-                spi_analyse.now_frame_tick = Get_Sys_us();
-                spi_analyse.spi_frame_gap = spi_analyse.now_frame_tick - spi_analyse.last_frame_tick;
-                spi_analyse.last_frame_tick = spi_analyse.now_frame_tick;
-                
+                spi_analyse[analyse_index].transmit_success_rate = ((float_t)spi_analyse[analyse_index].spi_success_frame/spi_analyse[analyse_index].spi_total_frame);
+
+                //计算帧间隔
+                if (spi_analyse[analyse_index].spi_total_frame > 1) {
+                    spi_analyse[analyse_index].spi_frame_gap = spi_analyse[analyse_index].cs_low_tick - spi_analyse[analyse_index-1].cs_hight_tick;
+                }else {
+                    spi_analyse[analyse_index].spi_frame_gap = 0;
+                }
+                //cs脉冲间隔
+                spi_analyse[analyse_index].cs_gap_tick = spi_analyse[analyse_index].cs_hight_tick - spi_analyse[analyse_index].cs_low_tick; 
                 /**********在这里可以做将数据放入环形缓冲区的操作*********/
                 if_rx_finish = 1;            //在这里将标志位置1之后可以调用SPI_PutData_To_Buffer()将数据放入缓冲区       
-
+                SPI_PutData_To_Buffer();
+                
                 /******************************************************/
                 //开启下一次通信
                 HAL_SPI_TransmitReceive_DMA(&hspi6, tx_spi_buffer, rx_spi_buffer, DMA_BUFFER_LEN);
-                __HAL_SPI_DISABLE(&hspi6);
             }
         }
         __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_10);
@@ -426,3 +464,23 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
         }
     }
 }
+
+
+/*********************************这个部分为接入RTOS***********************************/
+/**
+*   @brief 这个函数放在MX_FREERTOS_Init里面，用来创建所有的spi任务
+*
+****/
+
+void My_SPI_Init_Task(void *argument){
+    My_SPI_Init();
+    while(1){
+
+    }
+}
+
+void My_SPI_Task(void){
+    //创建初始化任务
+    xTaskCreate(My_SPI_Init_Task, "My_SPI_Init_Task", 128, NULL, osPriorityNormal, NULL);
+}
+

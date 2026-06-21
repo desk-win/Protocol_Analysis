@@ -14,6 +14,14 @@
 #include <string.h>
 #include <sys/types.h>
 
+
+
+/**************************************************************
+*   在调用DCMI_DoubleBuffer_Start()之后cpld复位，dcmi开始接收
+*   调用调用adc_a_buf和adc_b_buf能获取两个ADC采集的数据
+*
+**************************************************************/
+
 uint8_t dcmi_halfcount = 0,dcmi_count = 0,dcmi_it=0;
 uint8_t dcmi_start=0,dma_en=0;
 

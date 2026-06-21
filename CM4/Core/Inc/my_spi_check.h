@@ -6,7 +6,9 @@
 #include <math.h>
 #include <stdint.h>
 #include "string.h"
-
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "task.h"
 #define DMA_BUFFER_LEN      256
 #define SPI_RANGE_BUFFER_LEN    2048
 
@@ -44,21 +46,28 @@ typedef struct{
 
 //协议分析方面的结构体
 typedef struct{
-  uint32_t cs_low_tick;         //cs引脚拉低的时候的时间
+  uint32_t cs_low_tick;         //cs引脚拉低的时刻
+  uint32_t cs_hight_tick;       //cs引脚拉高的时刻
   uint32_t cs_gap_tick;         //cs脉冲宽度  
   uint16_t spi_total_frame;     //总帧数
   uint16_t spi_success_frame;   //成功帧数
   uint16_t spi_fail_frame;      //失败帧数
   float_t transmit_success_rate;//传输成功率
   uint32_t spi_frame_gap;       //帧间隔
-  uint32_t now_frame_tick;      //过程帧
-  uint32_t last_frame_tick;     //上一帧
 } My_SPI_Analyse;
 
+extern SPI_Range_Buffer spi_range_buffer;
+extern My_SPI_Analyse spi_analyse[20];
+
+extern uint8_t rx_spi_buffer[DMA_BUFFER_LEN];
+
+extern My_SPI_Deploy spi_deploy;
+
 void CS_Pin_State(uint8_t level);
+void CS_Switch_To_Exit(void);
 uint8_t SPI_RangeBuffer_Wirte(uint8_t data);
 uint8_t SPI_RangeBuffer_Read(uint8_t *data, uint32_t data_len);
-void SPI_PutData_To_Buffer(void);
+uint8_t SPI_PutData_To_Buffer(void);
 void My_SPI_Init(uint8_t time_mode, My_SPI_Mode role, uint8_t cs_delay, uint16_t baudrate, uint8_t cs_polarity);
 void Switch_SPI_Mode(My_SPI_Mode spi_mode);
 void My_SPI_Send(uint8_t *data, uint32_t len);
