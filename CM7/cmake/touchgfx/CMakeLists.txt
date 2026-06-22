@@ -22,6 +22,7 @@ set(TouchGFX_Src
     ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/common/FrontendApplication.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/data_screen_screen/Data_screenPresenter.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/data_screen_screen/Data_screenView.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/data_screen_screen/WaveformWidget.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/model/Model.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/sd_test_screen_screen/SD_Test_ScreenPresenter.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/gui/src/sd_test_screen_screen/SD_Test_ScreenView.cpp
@@ -35,11 +36,13 @@ set(TouchGFX_Src
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/CompressedUnmappedFontCache.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/FontCache.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_0.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_10.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_11.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_12.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_13.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_14.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_15.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_16.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_17.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_18.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/fonts/src/Font_FZSTK_TTF_28_4bpp_31.cpp
@@ -65,11 +68,16 @@ set(TouchGFX_Src
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/gui_generated/src/start_screen_screen/start_screenViewBase.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/BitmapDatabase.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/SVGDatabase.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_normal.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_button_regular_height_50_medium_round_inactive.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_togglebutton_medium_round_text_off_normal.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/__generated/image_alternate_theme_images_widgets_togglebutton_medium_round_text_on_light.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/image_menu_bg.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/image_menu_btn.cpp
+    ${CMAKE_SOURCE_DIR}/TouchGFX/generated/images/src/image_menu_btn_pressed.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/texts/src/LanguageGb.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/texts/src/Texts.cpp
     ${CMAKE_SOURCE_DIR}/TouchGFX/generated/texts/src/TypedTextDatabase.cpp

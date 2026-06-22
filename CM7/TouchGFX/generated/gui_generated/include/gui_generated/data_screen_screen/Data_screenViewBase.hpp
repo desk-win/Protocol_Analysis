@@ -8,7 +8,9 @@
 #include <mvp/View.hpp>
 #include <gui/data_screen_screen/Data_screenPresenter.hpp>
 #include <touchgfx/widgets/Box.hpp>
-#include <touchgfx/widgets/Button.hpp>
+#include <touchgfx/widgets/ButtonWithLabel.hpp>
+#include <touchgfx/containers/Container.hpp>
+#include <touchgfx/mixins/ClickListener.hpp>
 
 class Data_screenViewBase : public touchgfx::View<Data_screenPresenter>
 {
@@ -26,8 +28,17 @@ protected:
      * Member Declarations
      */
     touchgfx::Box __background;
+    touchgfx::ButtonWithLabel buttonWithLabel2_4_1;
+    touchgfx::ButtonWithLabel buttonWithLabel2_1;
     touchgfx::Box box1;
-    touchgfx::Button button1;
+    touchgfx::ButtonWithLabel choose;
+    touchgfx::ButtonWithLabel back;
+    touchgfx::ClickListener< touchgfx::Container > choose_contain;
+    touchgfx::ButtonWithLabel UART;
+    touchgfx::ButtonWithLabel Settings;
+    touchgfx::ButtonWithLabel I2C;
+    touchgfx::ButtonWithLabel SPI;
+    touchgfx::ButtonWithLabel CAN;
 
 private:
 

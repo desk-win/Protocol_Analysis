@@ -5,6 +5,33 @@
   </Languages>
   <Texts>
     <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_X2PP" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">设置</Translation>
+      </Text>
+      <Text Id="__SingleUse_N9ZF" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">CAN</Translation>
+      </Text>
+      <Text Id="__SingleUse_C3PG" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">CAN</Translation>
+      </Text>
+      <Text Id="__SingleUse_X6ZG" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">SPI</Translation>
+      </Text>
+      <Text Id="__SingleUse_ZE2H" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">I2C</Translation>
+      </Text>
+      <Text Id="__SingleUse_R95Q" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">UART</Translation>
+      </Text>
+      <Text Id="__SingleUse_F2LS" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">UART</Translation>
+      </Text>
+      <Text Id="__SingleUse_R43E" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">返回主菜单</Translation>
+      </Text>
+      <Text Id="__SingleUse_O8IC" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">协议选择</Translation>
+      </Text>
       <Text Id="__SingleUse_T387" Alignment="Left" TypographyId="Default">
         <Translation Language="GB">&lt;&gt;</Translation>
       </Text>

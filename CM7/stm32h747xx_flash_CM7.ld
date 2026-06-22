@@ -42,7 +42,12 @@ FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 1024K
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K
 ITCMRAM (xrw)      : ORIGIN = 0x00000000, LENGTH = 64K
 AXI_SRAM (xrw)      : ORIGIN = 0x24000000, LENGTH = 512K
+OPEN_AMP_SHMEM (xrw)  : ORIGIN = 0x38000400, LENGTH = 63K
 }
+
+/* OpenAMP shared memory region (SRAM4 / D3 domain 0x38000000, 双核共享) */
+__OPENAMP_region_start__ = ORIGIN(OPEN_AMP_SHMEM);
+__OPENAMP_region_end__ = ORIGIN(OPEN_AMP_SHMEM) + LENGTH(OPEN_AMP_SHMEM);
 /* Highest address of the user mode stack */
 _estack = 0x20020000;    /* end of RAM */
 /* Generate a link error if heap and stack don't fit into RAM */
@@ -52,6 +57,14 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 /* Define output sections */
 SECTIONS
 {
+  /* OpenAMP resource table in shared memory (SRAM4), accessible by both cores */
+  .resource_table (NOLOAD) :
+  {
+    . = ALIGN(4);
+    *(.resource_table)
+    . = ALIGN(4);
+  } >OPEN_AMP_SHMEM
+
   /* The startup code goes first into FLASH */
   .isr_vector :
   {

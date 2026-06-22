@@ -21,7 +21,7 @@
 #include "sdmmc.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "bsp_driver_sd.h"   /* BSP_SD_IsDetected/SD_PRESENT/MSD_OK 等（BSP_SD_Init 重写用）*/
 /* USER CODE END 0 */
 
 SD_HandleTypeDef hsd2;
@@ -167,6 +167,17 @@ void HAL_SD_MspDeInit(SD_HandleTypeDef* sdHandle)
 }
 
 /* USER CODE BEGIN 1 */
-
+#if 0
+/* 暂撤销 BSP_SD_Init 重写：defaultTask 之前稳定(sd涨)时用的是原 __weak 版
+ * (f_mount 重试时 HAL_SD_Init 重复)。重写后反而不稳定，先回到原版定位元凶。*/
+uint8_t BSP_SD_Init(void)
+{
+  if (hsd2.State == HAL_SD_STATE_READY) return MSD_OK;
+  if (BSP_SD_IsDetected() != SD_PRESENT) return MSD_ERROR_SD_NOT_PRESENT;
+  uint8_t r = HAL_SD_Init(&hsd2);
+  if (r == HAL_OK) HAL_SD_ConfigWideBusOperation(&hsd2, SDMMC_BUS_WIDE_4B);
+  return (r == HAL_OK) ? MSD_OK : MSD_ERROR;
+}
+#endif
 /* USER CODE END 1 */
 

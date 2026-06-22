@@ -37,6 +37,7 @@
 #include "delay.h"
 #include "lcd.h"
 #include "bsp_driver_sd.h"
+#include "shared_buf.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,7 +47,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define DUAL_CORE_BOOT_SYNC_SEQUENCE  /* 双核 boot 同步：CM7 Release HSEM 唤醒 CM4 */
+#if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
+#ifndef HSEM_ID_0
+#define HSEM_ID_0 (0U) /* HW semaphore 0 */
+#endif
+#endif /* DUAL_CORE_BOOT_SYNC_SEQUENCE */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -60,6 +66,11 @@
 uint8_t g_sd_nand_detected = 0;   /* 1 = SD NAND detected & ready */
 HAL_SD_CardInfoTypeDef g_sd_card_info;
 	uint32_t g_sd_free_kb = 0;
+volatile uint32_t g_shm_rx_count = 0;   /* CM4→CM7 共享内存收到的字节数 */
+volatile uint32_t g_sd_written = 0;     /* 已写入 SD NAND 的字节数（验证 SD 储存）*/
+volatile uint32_t g_sd_status = 0;      /* SD init 状态：0未跑 1sdnand失败 2mount失败 3open失败 4就绪 */
+volatile uint8_t g_record_req = 0;      /* 4 协议按钮请求：0=无, 1=UART, 2=SPI, 3=I2C, 4=CAN */
+volatile uint8_t g_record_active = 0;   /* 当前记录的协议：0=没记, 1-4=协议 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -170,6 +181,11 @@ Error_Handler();
   /* SD NAND init is deferred to TouchGFX handleTickEvent().
    * HAL_SD_Init() blocks in SDMMC_GetCmdResp1() on this platform,
    * so we init manually in the task instead.                       */
+  /* shm_init 改由 CM4 调用（CM4 main.c USER CODE 2）。
+   * 原因：CM7→CM4 方向不通（shm_init 写停在 CM7 D-Cache，clean 也 flush 不到 CM4，
+   * CM4 读 tail=3662 随机）。但 CM4→CM7 方向通（魔数 + 注释 shm_init 时 head=1029 验证）。
+   * CM4 无 cache，shm_init 写直达物理，CM7 invalidate 能读到。*/
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -285,6 +301,34 @@ void MPU_Config(void)
   MPU_InitStruct.BaseAddress = 0xD0000000;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* SRAM4 (D3 domain 0x38000000) 共享内存：shareable + non-cacheable（双核通信） */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
+  MPU_InitStruct.BaseAddress = 0x38000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_64KB;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* AXI SRAM 共享内存段（0x24060000，避开前144KB heap/stack）：shareable + non-cacheable */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER3;
+  MPU_InitStruct.BaseAddress = 0x2407C000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_16KB;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* SRAM1 (D2域 0x30000000) 共享内存：shareable + non-cacheable */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER4;
+  MPU_InitStruct.BaseAddress = 0x30000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_128KB;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 

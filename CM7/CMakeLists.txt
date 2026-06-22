@@ -65,7 +65,7 @@ set(CMAKE_CXX_COMPILER_FORCED "true")
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined symbols
+    VIRTIO_MASTER_ONLY
 )
 
 # Enable CMake support for ASM, C, and C++ languages
@@ -133,6 +133,19 @@ target_sources(STM32_Drivers PRIVATE
 
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
+
+# OpenAMP/libmetal 用 newlib 的 syscall (_sbrk/_write/...)。--gc-sections 会把
+# 这些 weak/未被直接引用的符号回收 → undefined reference。强制保留。
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+    -Wl,--undefined=_sbrk
+    -Wl,--undefined=_write
+    -Wl,--undefined=_read
+    -Wl,--undefined=_close
+    -Wl,--undefined=_lseek
+    -Wl,--undefined=_exit
+    -Wl,--undefined=_fstat
+    -Wl,--undefined=_isatty
+)
 
 # Validate that STM32CubeMX code is compatible with C standard
 if((CMAKE_C_STANDARD EQUAL 90) OR (CMAKE_C_STANDARD EQUAL 99))

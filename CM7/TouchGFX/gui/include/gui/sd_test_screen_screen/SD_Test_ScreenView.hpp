@@ -34,6 +34,10 @@ protected:
     /* Buffer for Designer-generated textArea1 (its own textArea1Buffer is only
      * 10 chars — too small for "Total:X MB  Free:X MB  Used:X MB"). */
     touchgfx::Unicode::UnicodeChar capacityBuf[50];
+
+    /* SD 根目录文件列表显示 */
+    touchgfx::TextAreaWithOneWildcard fileText;
+    touchgfx::Unicode::UnicodeChar fileBuf[200];
 };
 
 #endif // SD_TEST_SCREENVIEW_HPP

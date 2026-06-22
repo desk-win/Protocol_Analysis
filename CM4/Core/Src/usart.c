@@ -270,13 +270,20 @@ void uart1_printf(char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    char buf[128];
+    char buf[64];
     int len = vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
     if (len > 0)
     {
         HAL_UART_Transmit(&huart1, (uint8_t *)buf, len, 200);
     }
+}
+/* __io_putchar: newlib _write / libmetal 日志走这里，重定向到 USART1。
+ * syscalls.c 的 _write 调 weak __io_putchar，不实现的话 metal_init 会卡死。 */
+int __io_putchar(int ch)
+{
+    HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 100);
+    return ch;
 }
 /* USER CODE END 1 */
 

@@ -58,6 +58,7 @@ void My_UART_Init(void) {
     memset(&cycle_tx_ctrl, 0, sizeof(cycle_tx_ctrl));
     rx_ring_buf.head = 0;
     rx_ring_buf.tail = 0;
+    /* 裸机环境下重新启用 USART6 RX DMA（无 FreeRTOS 冲突）*/
     HAL_UARTEx_ReceiveToIdle_DMA(&huart6, rx_uart_buffer, UART_RXDMA_LEN);
 }
 

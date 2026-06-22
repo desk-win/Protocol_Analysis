@@ -11,7 +11,7 @@
  * sdnand_init() — copied from experiment 30 (sdmmc_sdnand.c)
  * The ONLY changes: uses hsd2 instead of g_sdnand_handle.
  */
-static uint8_t sdnand_init(void)
+extern "C" uint8_t sdnand_init(void)
 {
     uint8_t SD_Error;
     GPIO_InitTypeDef gpio_init_struct;
@@ -56,7 +56,9 @@ static uint8_t sdnand_init(void)
     hsd2.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
     hsd2.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
     hsd2.Init.BusWide = SDMMC_BUS_WIDE_4B;
-    hsd2.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+    /* 开硬件流控：SD NAND 偶发读取错误（Free 每次不同值）部分源于 FIFO 溢出，
+     * 流控让 SDMMC 在 FIFO 满时自动暂停 CLK，防数据丢/错。 */
+    hsd2.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_ENABLE;
     hsd2.Init.ClockDiv = SDMMC_NSpeed_CLK_DIV;
 
     SD_Error = HAL_SD_Init(&hsd2);
@@ -184,6 +186,13 @@ void SD_Test_ScreenView::setupScreen()
     textArea1.setWildcard(capacityBuf);
     textArea1.setPosition(20, 200, 760, 40);
     textArea1.invalidate();
+
+    /* 文件列表显示区（容量下方）*/
+    fileText.setPosition(20, 260, 760, 160);
+    fileText.setTypedText(TypedText(T___SINGLEUSE_T387));
+    fileText.setWildcard(fileBuf);
+    fileText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    add(fileText);
 }
 
 void SD_Test_ScreenView::tearDownScreen()
@@ -209,18 +218,17 @@ void SD_Test_ScreenView::handleTickEvent()
 
         if (tickCount >= 60)
         {
-            sdTestDone = true;
-
-            uint8_t det = sdnand_init();
-
-            if (det == 0)
+            /* 不再 sdnand_init + sd_nand_full_test（与 defaultTask 抢 SD 导致不稳定）。
+             * 等 defaultTask 完成 SD init（g_sd_status != 0），用它的结果。*/
+            extern volatile uint32_t g_sd_status;
+            if (g_sd_status == 0U)
             {
-                fatfsResult = sd_nand_full_test();
-                sdTestResult = (fatfsResult == 0) ? 0 : 10 + fatfsResult;
+                /* defaultTask 还在 init，等下个 tick（sdTestDone 保持 false）*/
             }
             else
             {
-                sdTestResult = det;
+                sdTestDone = true;
+                sdTestResult = (g_sd_status == 4U) ? 0 : (int)g_sd_status;  /* 0=OK, 1/2/3=失败步骤 */
             }
 
             if (sdTestResult == 0)
@@ -278,6 +286,13 @@ void SD_Test_ScreenView::handleTickEvent()
 
                 textArea1.setWildcard(capacityBuf);
                 textArea1.invalidate();
+
+                /* 文件列表暂时禁用（f_opendir 和 defaultTask SD 操作冲突导致卡死）。
+                 * 后续改用 defaultTask 列文件到全局变量，SD_Test_Screen 只读显示。*/
+                touchgfx::Unicode::strncpy(fileBuf, "File list disabled (SD conflict)",
+                    sizeof(fileBuf) / sizeof(fileBuf[0]));
+                fileText.setWildcard(fileBuf);
+                fileText.invalidate();
             }
         }
     }

@@ -33,6 +33,7 @@
     <ClCompile Include="..\..\gui\src\sd_test_screen_screen\SD_Test_ScreenPresenter.cpp"/>
     <ClCompile Include="..\..\gui\src\sd_test_screen_screen\SD_Test_ScreenView.cpp"/>
     <ClCompile Include="..\..\generated\gui_generated\src\sd_test_screen_screen\SD_Test_ScreenViewBase.cpp"/>
+    <ClCompile Include="..\..\gui\src\data_screen_screen\WaveformWidget.cpp"/>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(ApplicationRoot)\assets\texts\texts.xml"/>
@@ -195,6 +196,7 @@
     <ClInclude Include="..\..\gui\include\gui\sd_test_screen_screen\SD_Test_ScreenPresenter.hpp"/>
     <ClInclude Include="..\..\gui\include\gui\sd_test_screen_screen\SD_Test_ScreenView.hpp"/>
     <ClInclude Include="..\..\generated\gui_generated\include\gui_generated\sd_test_screen_screen\SD_Test_ScreenViewBase.hpp"/>
+    <ClInclude Include="..\..\gui\include\gui\data_screen_screen\WaveformWidget.hpp"/>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="$(ApplicationRoot)\generated\simulator\touchgfx.rc"/>

@@ -13,7 +13,7 @@ Settings_ScreenViewBase::Settings_ScreenViewBase() :
     add(__background);
 
     box1.setPosition(0, 0, 800, 480);
-    box1.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    box1.setColor(touchgfx::Color::getColorFromRGB(20, 245, 245));
     add(box1);
 
     button1.setXY(0, 0);

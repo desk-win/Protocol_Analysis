@@ -189,7 +189,8 @@
 /  To enable Trim function, also CTRL_TRIM command should be implemented to the
 /  disk_ioctl() function. */
 
-#define _FS_NOFSINFO    0 /* 0,1,2 or 3 */
+#define _FS_NOFSINFO    3 /* 0,1,2 or 3 — bit0+bit1: 不信任 FSINFO 的 free count & last alloc clust，
+/  * f_getfree 强制全 FAT 扫描得真实值。SD NAND FSINFO 易损坏 → 返回 0 假满（f_open 却能分配簇）*/
 /* If you need to know correct free space on the FAT32 volume, set bit 0 of this
 /  option, and f_getfree() function at first time after volume mount will force
 /  a full FAT scan. Bit 1 controls the use of last allocated cluster number.

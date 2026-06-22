@@ -288,6 +288,9 @@
     <ClCompile Include="..\..\generated\gui_generated\src\sd_test_screen_screen\SD_Test_ScreenViewBase.cpp">
       <Filter>Source Files\generated\gui_generated\sd_test_screen_screen</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\gui\src\data_screen_screen\WaveformWidget.cpp">
+      <Filter>Source Files\gui\data_screen_screen</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(ApplicationRoot)\assets\texts\texts.xml">
@@ -765,6 +768,9 @@
     </ClInclude>
     <ClInclude Include="..\..\generated\gui_generated\include\gui_generated\sd_test_screen_screen\SD_Test_ScreenViewBase.hpp">
       <Filter>Header Files\generated\gui_generated\sd_test_screen_screen</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\gui\include\gui\data_screen_screen\WaveformWidget.hpp">
+      <Filter>Header Files\gui\data_screen_screen</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

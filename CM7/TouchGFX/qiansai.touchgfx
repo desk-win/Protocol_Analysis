@@ -217,32 +217,247 @@
         "Name": "Data_screen",
         "Components": [
           {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabel2_4_1",
+            "X": 700,
+            "Y": 212,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_normal.png",
+            "TextId": "__SingleUse_N9ZF",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_normal.json"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabel2_1",
+            "X": 700,
+            "Y": 105,
+            "Width": 100,
+            "Height": 36,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_normal.png",
+            "TextId": "__SingleUse_R95Q",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_normal.json"
+          },
+          {
             "Type": "Box",
             "Name": "box1",
             "Width": 800,
-            "Height": 480
+            "Height": 480,
+            "Color": {
+              "Red": 222,
+              "Green": 176,
+              "Blue": 69
+            }
           },
           {
-            "Type": "Button",
-            "Name": "button1",
+            "Type": "ButtonWithLabel",
+            "Name": "choose",
+            "X": 560,
             "Width": 240,
             "Height": 50,
             "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.png",
             "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.png",
+            "TextId": "__SingleUse_O8IC",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
             "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\medium_rounded_normal.json"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "back",
+            "Width": 240,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.png",
+            "TextId": "__SingleUse_R43E",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\medium_rounded_normal.json"
+          },
+          {
+            "Type": "Container",
+            "Name": "choose_contain",
+            "X": 700,
+            "Y": 123,
+            "Width": 100,
+            "Height": 212,
+            "Clickable": true,
+            "Components": [
+              {
+                "Type": "ButtonWithLabel",
+                "Name": "UART",
+                "Width": 100,
+                "Height": 36,
+                "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+                "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_normal.png",
+                "TextId": "__SingleUse_F2LS",
+                "ReleasedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "PressedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "TextRotation": "0",  
+                "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_normal.json"
+              },
+              {
+                "Type": "ButtonWithLabel",
+                "Name": "Settings",
+                "Y": 176,
+                "Width": 100,
+                "Height": 36,
+                "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+                "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_normal.png",
+                "TextId": "__SingleUse_X2PP",
+                "ReleasedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "PressedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "TextRotation": "0",
+                "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_normal.json"
+              },
+              {
+                "Type": "ButtonWithLabel",
+                "Name": "I2C",
+                "Y": 43,
+                "Width": 100,
+                "Height": 36,
+                "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+                "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_normal.png",
+                "TextId": "__SingleUse_ZE2H",
+                "ReleasedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "PressedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "TextRotation": "0",
+                "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_normal.json"
+              },
+              {
+                "Type": "ButtonWithLabel",
+                "Name": "SPI",
+                "Y": 132,
+                "Width": 100,
+                "Height": 36,
+                "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+                "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_normal.png",
+                "TextId": "__SingleUse_X6ZG",
+                "ReleasedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "PressedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "TextRotation": "0",
+                "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_normal.json"
+              },
+              {
+                "Type": "ButtonWithLabel",
+                "Name": "CAN",
+                "Y": 89,
+                "Width": 100,
+                "Height": 36,
+                "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_pressed.png",
+                "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_36_tiny_rounded_normal.png",
+                "TextId": "__SingleUse_C3PG",
+                "ReleasedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "PressedColor": {
+                  "Red": 255,
+                  "Green": 255,
+                  "Blue": 255
+                },
+                "TextRotation": "0",
+                "Preset": "alternate_theme\\presets\\button\\regular\\height_36\\tiny_rounded_normal.json"
+              }
+            ]
           }
         ],
         "Interactions": [
           {
-            "InteractionName": "Interaction1",
+            "InteractionName": "back",
             "Trigger": {
               "Type": "TriggerClicked",
-              "TriggerComponent": "button1"
+              "TriggerComponent": "back"
             },
             "Action": {
               "Type": "ActionGotoScreen",
               "ScreenTransitionType": "ScreenTransitionNone",
               "ActionComponent": "start_screen"
+            }
+          },
+          {
+            "InteractionName": "Interaction1",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "choose"
+            },
+            "Action": {
+              "Type": "ActionNone"
             }
           }
         ]
@@ -310,9 +525,9 @@
             "Width": 800,
             "Height": 480,
             "Color": {
-              "Red": 255,
-              "Green": 255,
-              "Blue": 255
+              "Red": 20,
+              "Green": 245,
+              "Blue": 245
             }
           },
           {

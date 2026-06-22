@@ -29,6 +29,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "my_uart_check.h"
+#include "shared_buf.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +44,7 @@
 /*                             demonstration code based on hardware semaphore */
 /* This define is present in both CM7/CM4 projects                            */
 /* To comment when developping/debugging on a single core                     */
-// #define DUAL_CORE_BOOT_SYNC_SEQUENCE  // 调试/下载CM4单核时注释（CM4默认STOP等CM7唤醒，导致ST-LINK连不上报No device）
+#define DUAL_CORE_BOOT_SYNC_SEQUENCE  /* 恢复：阶段2 OPENAMP 需要双核 boot 同步 */
 
 #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
 #ifndef HSEM_ID_0
@@ -128,7 +129,36 @@ int main(void)
   MX_SPI6_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  uart1_printf("\r\n[CM4] enter USER CODE 2 (boot sync 已过)\r\n");
   My_UART_Init();   /* 启动 USART6 DMA + IDLE 空闲中断接收 */
+
+  /* CM4 初始化 ring buffer：CM4→CM7 方向通(CM4无cache,写直达物理)，
+   * CM7→CM4 方向不通(CM7写停在D-Cache,clean也flush不到CM4)，故 shm_init 由 CM4 调用。*/
+  shm_init();
+  uart1_printf("[CM4] shm_init done: head/tail=0\r\n");
+
+  /* 裸机 main 循环：UART6 抓取 → 共享内存（给 CM7）。osKernelStart 永不执行。*/
+  uart1_printf("[CM4] bare-metal: UART6 grab -> shm (PG14<->PG9 self-loop)\r\n");
+  uint8_t rx_buf[64];
+  uint8_t tx_buf[5];
+  uint8_t tx_base = 0;
+  uint32_t bm_tick = 0;
+  for(;;)
+  {
+    /* 每秒发 5 个递增字节（0,1,2,3,4 / 5,6,7,8,9 ...），每个字节 bit 图案不同，
+     * 波形持续滚动变化（Hello 重复会波形不变）。PG14 TX → PG9 RX 自环回。*/
+    if (bm_tick % 100 == 0)
+    {
+      for (int i = 0; i < 5; i++) tx_buf[i] = (uint8_t)(tx_base + i);
+      HAL_UART_Transmit(&huart6, tx_buf, 5, 100);
+      tx_base += 5;
+    }
+    /* 读 UART 环形缓冲，抓到的字节写入共享内存给 CM7 */
+    uint32_t n = My_UART_Read_RingBuffer(rx_buf, sizeof(rx_buf));
+    for (uint32_t i = 0; i < n; i++) shm_push(rx_buf[i]);
+    bm_tick++;
+    HAL_Delay(10);
+  }
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -179,6 +209,19 @@ void MPU_Config(void)
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* SRAM4 (D3 domain 0x38000000) 共享内存：shareable + non-cacheable（双核通信） */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0x38000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_64KB;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* AXI SRAM 共享内存段（0x24060000）：shareable + non-cacheable */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
+  MPU_InitStruct.BaseAddress = 0x2407C000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_16KB;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 
