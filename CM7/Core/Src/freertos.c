@@ -232,9 +232,14 @@ void StartDefaultTask(void *argument)
       {
         if (req == g_record_active)
         {
-          /* 停止当前记录（f_close 保存文件）*/
+          /* 停止当前记录。g_record_discard=1 → f_unlink 删除文件（modal"不保存"）*/
+          extern volatile uint8_t g_record_discard;
+          uint8_t disc = g_record_discard;
+          g_record_discard = 0U;
           if (sd_ready) { f_close(&sd_file); sd_ready = 0U; }
+          if (disc == 1U) f_unlink(proto_files[req - 1U]);
           g_record_active = 0U;
+          g_sd_written = 0U;   /* 字节数归零：旧文件结束，下次记录从 0 开始计 */
         }
         else if (req >= 1U && req <= 4U)
         {
@@ -252,6 +257,7 @@ void StartDefaultTask(void *argument)
           {
             sd_ready = 1U;
             g_record_active = req;
+            g_sd_written = 0U;   /* 切换协议 = 开新文件，字节数归零重新计 */
           }
           else
           {

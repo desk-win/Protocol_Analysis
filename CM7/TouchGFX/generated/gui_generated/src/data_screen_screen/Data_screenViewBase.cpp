@@ -13,20 +13,6 @@ Data_screenViewBase::Data_screenViewBase() :
     __background.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
     add(__background);
 
-    buttonWithLabel2_4_1.setXY(700, 212);
-    buttonWithLabel2_4_1.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_PRESSED_ID));
-    buttonWithLabel2_4_1.setLabelText(touchgfx::TypedText(T___SINGLEUSE_N9ZF));
-    buttonWithLabel2_4_1.setLabelColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
-    buttonWithLabel2_4_1.setLabelColorPressed(touchgfx::Color::getColorFromRGB(255, 255, 255));
-    add(buttonWithLabel2_4_1);
-
-    buttonWithLabel2_1.setXY(700, 105);
-    buttonWithLabel2_1.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_PRESSED_ID));
-    buttonWithLabel2_1.setLabelText(touchgfx::TypedText(T___SINGLEUSE_R95Q));
-    buttonWithLabel2_1.setLabelColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
-    buttonWithLabel2_1.setLabelColorPressed(touchgfx::Color::getColorFromRGB(255, 255, 255));
-    add(buttonWithLabel2_1);
-
     box1.setPosition(0, 0, 800, 480);
     box1.setColor(touchgfx::Color::getColorFromRGB(222, 176, 69));
     add(box1);
@@ -38,13 +24,13 @@ Data_screenViewBase::Data_screenViewBase() :
     choose.setLabelColorPressed(touchgfx::Color::getColorFromRGB(255, 255, 255));
     add(choose);
 
-    back.setXY(0, 0);
-    back.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID));
-    back.setLabelText(touchgfx::TypedText(T___SINGLEUSE_R43E));
-    back.setLabelColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
-    back.setLabelColorPressed(touchgfx::Color::getColorFromRGB(255, 255, 255));
-    back.setAction(buttonCallback);
-    add(back);
+    back_data.setXY(0, 0);
+    back_data.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID));
+    back_data.setLabelText(touchgfx::TypedText(T_BACK_SETTING));
+    back_data.setLabelColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    back_data.setLabelColorPressed(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    back_data.setAction(buttonCallback);
+    add(back_data);
 
     choose_contain.setPosition(700, 123, 100, 212);
     UART.setXY(0, 0);
@@ -97,10 +83,10 @@ void Data_screenViewBase::setupScreen()
 
 void Data_screenViewBase::buttonCallbackHandler(const touchgfx::AbstractButton& src)
 {
-    if (&src == &back)
+    if (&src == &back_data)
     {
         //back
-        //When back clicked change screen to start_screen
+        //When back_data clicked change screen to start_screen
         //Go to start_screen with no screen transition
         application().gotostart_screenScreenNoTransition();
     }

@@ -8,8 +8,8 @@
 #include <mvp/View.hpp>
 #include <gui/sd_test_screen_screen/SD_Test_ScreenPresenter.hpp>
 #include <touchgfx/widgets/Box.hpp>
-#include <touchgfx/widgets/Button.hpp>
 #include <touchgfx/widgets/TextAreaWithWildcard.hpp>
+#include <touchgfx/widgets/ButtonWithLabel.hpp>
 
 class SD_Test_ScreenViewBase : public touchgfx::View<SD_Test_ScreenPresenter>
 {
@@ -28,8 +28,8 @@ protected:
      */
     touchgfx::Box __background;
     touchgfx::Box box1;
-    touchgfx::Button button1;
     touchgfx::TextAreaWithOneWildcard textArea1;
+    touchgfx::ButtonWithLabel back_SD;
 
     /*
      * Wildcard Buffers

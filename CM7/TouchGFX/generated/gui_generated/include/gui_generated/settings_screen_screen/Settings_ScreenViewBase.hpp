@@ -8,7 +8,7 @@
 #include <mvp/View.hpp>
 #include <gui/settings_screen_screen/Settings_ScreenPresenter.hpp>
 #include <touchgfx/widgets/Box.hpp>
-#include <touchgfx/widgets/Button.hpp>
+#include <touchgfx/widgets/ButtonWithLabel.hpp>
 
 class Settings_ScreenViewBase : public touchgfx::View<Settings_ScreenPresenter>
 {
@@ -27,7 +27,7 @@ protected:
      */
     touchgfx::Box __background;
     touchgfx::Box box1;
-    touchgfx::Button button1;
+    touchgfx::ButtonWithLabel back_setting;
 
 private:
 

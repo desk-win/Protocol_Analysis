@@ -28,11 +28,9 @@ protected:
      * Member Declarations
      */
     touchgfx::Box __background;
-    touchgfx::ButtonWithLabel buttonWithLabel2_4_1;
-    touchgfx::ButtonWithLabel buttonWithLabel2_1;
     touchgfx::Box box1;
     touchgfx::ButtonWithLabel choose;
-    touchgfx::ButtonWithLabel back;
+    touchgfx::ButtonWithLabel back_data;
     touchgfx::ClickListener< touchgfx::Container > choose_contain;
     touchgfx::ButtonWithLabel UART;
     touchgfx::ButtonWithLabel Settings;

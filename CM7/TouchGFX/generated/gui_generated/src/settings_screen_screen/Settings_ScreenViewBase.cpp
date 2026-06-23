@@ -4,6 +4,7 @@
 #include <gui_generated/settings_screen_screen/Settings_ScreenViewBase.hpp>
 #include <touchgfx/Color.hpp>
 #include <images/BitmapDatabase.hpp>
+#include <texts/TextKeysAndLanguages.hpp>
 
 Settings_ScreenViewBase::Settings_ScreenViewBase() :
     buttonCallback(this, &Settings_ScreenViewBase::buttonCallbackHandler)
@@ -16,10 +17,13 @@ Settings_ScreenViewBase::Settings_ScreenViewBase() :
     box1.setColor(touchgfx::Color::getColorFromRGB(20, 245, 245));
     add(box1);
 
-    button1.setXY(0, 0);
-    button1.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID));
-    button1.setAction(buttonCallback);
-    add(button1);
+    back_setting.setXY(0, 0);
+    back_setting.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID));
+    back_setting.setLabelText(touchgfx::TypedText(T_BACK_SETTING));
+    back_setting.setLabelColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    back_setting.setLabelColorPressed(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    back_setting.setAction(buttonCallback);
+    add(back_setting);
 }
 
 Settings_ScreenViewBase::~Settings_ScreenViewBase()
@@ -34,10 +38,10 @@ void Settings_ScreenViewBase::setupScreen()
 
 void Settings_ScreenViewBase::buttonCallbackHandler(const touchgfx::AbstractButton& src)
 {
-    if (&src == &button1)
+    if (&src == &back_setting)
     {
         //Interaction1
-        //When button1 clicked change screen to start_screen
+        //When back_setting clicked change screen to start_screen
         //Go to start_screen with no screen transition
         application().gotostart_screenScreenNoTransition();
     }

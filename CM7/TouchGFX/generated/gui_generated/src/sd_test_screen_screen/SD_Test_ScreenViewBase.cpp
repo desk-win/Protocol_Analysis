@@ -3,8 +3,8 @@
 /*********************************************************************************/
 #include <gui_generated/sd_test_screen_screen/SD_Test_ScreenViewBase.hpp>
 #include <touchgfx/Color.hpp>
-#include <images/BitmapDatabase.hpp>
 #include <texts/TextKeysAndLanguages.hpp>
+#include <images/BitmapDatabase.hpp>
 
 SD_Test_ScreenViewBase::SD_Test_ScreenViewBase() :
     buttonCallback(this, &SD_Test_ScreenViewBase::buttonCallbackHandler)
@@ -17,11 +17,6 @@ SD_Test_ScreenViewBase::SD_Test_ScreenViewBase() :
     box1.setColor(touchgfx::Color::getColorFromRGB(56, 194, 153));
     add(box1);
 
-    button1.setXY(0, 0);
-    button1.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID));
-    button1.setAction(buttonCallback);
-    add(button1);
-
     textArea1.setXY(356, 214);
     textArea1.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
     textArea1.setLinespacing(0);
@@ -30,6 +25,14 @@ SD_Test_ScreenViewBase::SD_Test_ScreenViewBase() :
     textArea1.resizeToCurrentText();
     textArea1.setTypedText(touchgfx::TypedText(T___SINGLEUSE_T387));
     add(textArea1);
+
+    back_SD.setXY(0, 0);
+    back_SD.setBitmaps(touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_NORMAL_ID), touchgfx::Bitmap(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_50_MEDIUM_ROUNDED_PRESSED_ID));
+    back_SD.setLabelText(touchgfx::TypedText(T_BACK_SETTING));
+    back_SD.setLabelColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    back_SD.setLabelColorPressed(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    back_SD.setAction(buttonCallback);
+    add(back_SD);
 }
 
 SD_Test_ScreenViewBase::~SD_Test_ScreenViewBase()
@@ -44,10 +47,10 @@ void SD_Test_ScreenViewBase::setupScreen()
 
 void SD_Test_ScreenViewBase::buttonCallbackHandler(const touchgfx::AbstractButton& src)
 {
-    if (&src == &button1)
+    if (&src == &back_SD)
     {
         //Interaction1
-        //When button1 clicked change screen to start_screen
+        //When back_SD clicked change screen to start_screen
         //Go to start_screen with no screen transition
         application().gotostart_screenScreenNoTransition();
     }

@@ -83,5 +83,8 @@ void WaveformWidget::draw(const touchgfx::Rect &invalidatedArea) const
 
 touchgfx::Rect WaveformWidget::getSolidRect() const
 {
-    return touchgfx::Rect(0, 0, getWidth(), getHeight());
+    /* 只方波窄带是 solid，其余透明（底层 box1 金色透出）。
+     * 全 solid 时 modal 残留字符落在波形上半区，draw 只清窄带，solid 阻止 box1 重绘 → 残留。*/
+    const int16_t lineH = 2;
+    return touchgfx::Rect(0, highY_ - lineH, getWidth(), lowY_ - highY_ + 3 * lineH);
 }

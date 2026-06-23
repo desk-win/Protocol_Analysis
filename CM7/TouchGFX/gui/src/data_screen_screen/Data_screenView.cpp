@@ -2,6 +2,7 @@
 #include <touchgfx/Color.hpp>
 #include <stdio.h>
 #include <texts/TextKeysAndLanguages.hpp>
+#include <images/BitmapDatabase.hpp>   /* 按钮 bitmap ID（modal 按钮）*/
 #include <shared_buf.h>
 #include "stm32h7xx.h"   /* SCB_InvalidateDCache_by_Addr（MPU non-cacheable 未生效，手动 invalidate）*/
 
@@ -10,9 +11,17 @@ Data_screenView::Data_screenView()
       uartClickCb(this, &Data_screenView::onUartClick),
       spiClickCb(this, &Data_screenView::onSpiClick),
       i2cClickCb(this, &Data_screenView::onI2cClick),
-      canClickCb(this, &Data_screenView::onCanClick)
+      canClickCb(this, &Data_screenView::onCanClick),
+      backCb(this, &Data_screenView::onBackClick),
+      keepCb(this, &Data_screenView::onKeepClick),
+      discardCb(this, &Data_screenView::onDiscardClick),
+      cancelCb(this, &Data_screenView::onCancelClick)
 {
     shmCountBuf[0] = 0;
+    modalBuf[0] = 0;
+    modalPending = PENDING_NONE;
+    modalState = MODAL_HIDDEN;
+    resultTicks = 0;
 }
 
 void Data_screenView::setupScreen()
@@ -38,9 +47,77 @@ void Data_screenView::setupScreen()
     SPI.setAction(spiClickCb);
     I2C.setAction(i2cClickCb);
     CAN.setAction(canClickCb);
+    /* 覆盖基类 back_data 跳转：记录中先弹 modal 确认 */
+    back_data.setAction(backCb);
     /* Container 初始隐藏 */
     choose_contain.setVisible(false);
     choose_contain.invalidate();
+
+    /* —— 确认 modal（记录中点 back/再点当前协议 → 保存/不保存/取消）——
+     * 等效官方 ModalWindow：遮罩 touchable 拦截底层 touch，最后 add 保证最上层。
+     * setVisible(false) 时子 widget 不参与 hit-test，隐藏时不拦截。*/
+    modalShade.setPosition(0, 0, 800, 480);
+    modalShade.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
+    modalShade.setAlpha(120);
+    modalShade.setTouchable(true);
+    modalOverlay.add(modalShade);
+
+    modalPanel.setPosition(200, 160, 400, 160);
+    modalPanel.setColor(touchgfx::Color::getColorFromRGB(60, 60, 60));
+    modalOverlay.add(modalPanel);
+
+    modalText.setPosition(220, 170, 360, 40);
+    modalText.setTypedText(TypedText(T___SINGLEUSE_T387));
+    modalText.setWildcard(modalBuf);
+    modalText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    touchgfx::Unicode::strncpy(modalBuf, "Save recording?", 32);
+    modalOverlay.add(modalText);
+
+    /* 3 按钮（ButtonWithLabel 当 Button 用——这个版本 setLabelText 只接受 TypedText，
+     * 自定义文字用 TextArea 叠加在按钮上，TextArea 默认 touchable=false 点击穿透）*/
+    const touchgfx::Bitmap btnN(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_NORMAL_ID);
+    const touchgfx::Bitmap btnP(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_PRESSED_ID);
+
+    btnKeep.setXY(230, 235);
+    btnKeep.setBitmaps(btnN, btnP);
+    btnKeep.setAction(keepCb);
+    modalOverlay.add(btnKeep);
+
+    btnDiscard.setXY(340, 235);
+    btnDiscard.setBitmaps(btnN, btnP);
+    btnDiscard.setAction(discardCb);
+    modalOverlay.add(btnDiscard);
+
+    btnCancel.setXY(450, 235);
+    btnCancel.setBitmaps(btnN, btnP);
+    btnCancel.setAction(cancelCb);
+    modalOverlay.add(btnCancel);
+
+    /* 按钮标签（叠加在按钮上，wildcard 填自定义文字）*/
+    touchgfx::Unicode::strncpy(keepLblBuf,    "Save",    16);
+    touchgfx::Unicode::strncpy(discardLblBuf, "Delete", 16);
+    touchgfx::Unicode::strncpy(cancelLblBuf,  "Cancel",  16);
+    keepText.setPosition(238, 237, 84, 32);
+    keepText.setTypedText(TypedText(T___SINGLEUSE_T387));
+    keepText.setWildcard(keepLblBuf);
+    keepText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    modalOverlay.add(keepText);
+    discardText.setPosition(348, 237, 84, 32);
+    discardText.setTypedText(TypedText(T___SINGLEUSE_T387));
+    discardText.setWildcard(discardLblBuf);
+    discardText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    modalOverlay.add(discardText);
+    cancelText.setPosition(458, 237, 84, 32);
+    cancelText.setTypedText(TypedText(T___SINGLEUSE_T387));
+    cancelText.setWildcard(cancelLblBuf);
+    cancelText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    modalOverlay.add(cancelText);
+
+    /* Container 必须设全屏尺寸：setVisible+invalidate 的重绘区域 = Container rect，
+     * 默认 0×0 时子 widget 不会被重绘（但 touchable 仍拦截 → 看不到 modal 却点不动 = 卡死假象）*/
+    modalOverlay.setPosition(0, 0, 800, 480);
+    modalOverlay.setVisible(false);
+    add(modalOverlay);   /* 最后 add = 最上层 */
 }
 
 void Data_screenView::tearDownScreen()
@@ -61,6 +138,21 @@ void Data_screenView::handleTickEvent()
     touchgfx::Unicode::strncpy(shmCountBuf, tmp, sizeof(shmCountBuf) / sizeof(shmCountBuf[0]));
     shmCountText.setWildcard(shmCountBuf);
     shmCountText.invalidate();
+
+    /* modal 结果倒计时：Saved!/Discarded! 显示一会儿后 hide + 执行 pending */
+    if (modalState == MODAL_RESULT)
+    {
+        if (--resultTicks <= 0)
+        {
+            int pend = modalPending;
+            hideConfirmModal();
+            if (pend == PENDING_BACK) application().gotostart_screenScreenNoTransition();
+        }
+        return;   /* 结果期间不刷新波形 */
+    }
+
+    /* modal 确认中暂停波形（否则波形刷新盖住 modal 面板）*/
+    if (modalState == MODAL_CONFIRM) return;
 
     /* 波形每 5 tick 刷新一次（约 80ms），降低刷新频率减少清屏/画线之间的闪烁 */
     static int wave_div = 0;
@@ -90,24 +182,117 @@ void Data_screenView::onMenuClick(const touchgfx::AbstractButton&)
     choose_contain.invalidate();
 }
 
-/* 4 协议按钮 → 设置 g_record_req，defaultTask 开始/停止记录对应协议 */
+/* 4 协议按钮 → 记录中(同协议)弹 modal 确认停止，否则设 g_record_req 开始/切换 */
 void Data_screenView::onUartClick(const touchgfx::AbstractButton&)
 {
     extern volatile uint8_t g_record_req;
+    extern volatile uint8_t g_record_active;
+    if (g_record_active == 1) { showConfirmModal(PENDING_NONE); return; }
     g_record_req = 1;
 }
 void Data_screenView::onSpiClick(const touchgfx::AbstractButton&)
 {
     extern volatile uint8_t g_record_req;
+    extern volatile uint8_t g_record_active;
+    if (g_record_active == 2) { showConfirmModal(PENDING_NONE); return; }
     g_record_req = 2;
 }
 void Data_screenView::onI2cClick(const touchgfx::AbstractButton&)
 {
     extern volatile uint8_t g_record_req;
+    extern volatile uint8_t g_record_active;
+    if (g_record_active == 3) { showConfirmModal(PENDING_NONE); return; }
     g_record_req = 3;
 }
 void Data_screenView::onCanClick(const touchgfx::AbstractButton&)
 {
     extern volatile uint8_t g_record_req;
+    extern volatile uint8_t g_record_active;
+    if (g_record_active == 4) { showConfirmModal(PENDING_NONE); return; }
     g_record_req = 4;
+}
+
+/* back 按钮：记录中弹 modal（pending=BACK，确认后回主屏），否则直接回主屏 */
+void Data_screenView::onBackClick(const touchgfx::AbstractButton&)
+{
+    extern volatile uint8_t g_record_active;
+    if (g_record_active != 0) showConfirmModal(PENDING_BACK);
+    else application().gotostart_screenScreenNoTransition();
+}
+
+/* modal"保存"：停止+保留 → 显示"Saved!"结果，倒计时后 hide+执行 pending（在 handleTickEvent）*/
+void Data_screenView::onKeepClick(const touchgfx::AbstractButton&)
+{
+    extern volatile uint8_t g_record_req;
+    extern volatile uint8_t g_record_active;
+    extern volatile uint8_t g_record_discard;
+    g_record_discard = 0;
+    g_record_req = g_record_active;      /* 触发 defaultTask 停止（保留）*/
+    touchgfx::Unicode::strncpy(modalBuf, "Saved!", 32);
+    modalText.setWildcard(modalBuf);
+    modalText.invalidate();
+    btnKeep.setVisible(false);    btnKeep.invalidate();
+    btnDiscard.setVisible(false); btnDiscard.invalidate();
+    btnCancel.setVisible(false);  btnCancel.invalidate();
+    modalState = MODAL_RESULT;
+    resultTicks = 90;   /* ~1.5 秒（60Hz tick），让用户看清结果 */
+}
+
+/* modal"不保存"：停止+删除 → 显示"Discarded!"结果，倒计时后 hide+执行 pending */
+void Data_screenView::onDiscardClick(const touchgfx::AbstractButton&)
+{
+    extern volatile uint8_t g_record_req;
+    extern volatile uint8_t g_record_active;
+    extern volatile uint8_t g_record_discard;
+    g_record_discard = 1;                /* 删除（defaultTask f_unlink）*/
+    g_record_req = g_record_active;      /* 触发停止 */
+    touchgfx::Unicode::strncpy(modalBuf, "Deleted!", 32);
+    modalText.setWildcard(modalBuf);
+    modalText.invalidate();
+    btnKeep.setVisible(false);    btnKeep.invalidate();
+    btnDiscard.setVisible(false); btnDiscard.invalidate();
+    btnCancel.setVisible(false);  btnCancel.invalidate();
+    modalState = MODAL_RESULT;
+    resultTicks = 90;
+}
+
+/* modal"取消"：继续记录，仅 hide modal */
+void Data_screenView::onCancelClick(const touchgfx::AbstractButton&)
+{
+    hideConfirmModal();
+}
+
+void Data_screenView::showConfirmModal(int pending)
+{
+    modalPending = (pending == PENDING_BACK) ? PENDING_BACK : PENDING_NONE;
+    touchgfx::Unicode::strncpy(modalBuf, "Save recording?", 32);
+    modalText.setWildcard(modalBuf);
+    btnKeep.setVisible(true);
+    btnDiscard.setVisible(true);
+    btnCancel.setVisible(true);
+    /* 彻底隐藏波形：否则半透明遮罩下波形透出、面板外残留 */
+    waveWidget.setVisible(false);
+    waveWidget.invalidate();
+    modalOverlay.setVisible(true);
+    modalOverlay.invalidate();
+    modalState = MODAL_CONFIRM;
+}
+
+void Data_screenView::hideConfirmModal()
+{
+    modalOverlay.setVisible(false);
+    /* 显式 invalidate 各子 widget 区域：modalText/按钮标签延伸到 x=580，但波形只到 x=500，
+     * 波形区域外的部分不被 waveWidget 重绘覆盖，必须单独 invalidate 才能清残留字符 */
+    modalText.invalidate();
+    btnKeep.invalidate();
+    btnDiscard.invalidate();
+    btnCancel.invalidate();
+    modalPanel.invalidate();
+    modalShade.invalidate();
+    modalOverlay.invalidate();
+    /* 恢复波形 + 重绘其区域 */
+    waveWidget.setVisible(true);
+    waveWidget.invalidate();
+    modalPending = PENDING_NONE;
+    modalState = MODAL_HIDDEN;
 }
