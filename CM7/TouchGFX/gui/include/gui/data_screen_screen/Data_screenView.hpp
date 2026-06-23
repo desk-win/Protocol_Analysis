@@ -6,6 +6,8 @@
 #include <touchgfx/widgets/TextAreaWithWildcard.hpp>
 #include <gui/data_screen_screen/WaveformWidget.hpp>
 #include <touchgfx/widgets/AbstractButton.hpp>
+#include <touchgfx/mixins/ClickListener.hpp>
+#include <touchgfx/events/ClickEvent.hpp>
 
 class Data_screenView : public Data_screenViewBase
 {
@@ -72,6 +74,13 @@ protected:
     void onPrevClick(const touchgfx::AbstractButton&);    /* 上一步 pos-- */
     void onNextClick(const touchgfx::AbstractButton&);    /* 下一步 pos++ */
     void onStopClick(const touchgfx::AbstractButton&);
+    /* 回放进度条（可点击/拖动定位，自绘 Box+ClickListener，等效 Slider 不依赖 bitmap）*/
+    touchgfx::ClickListener<touchgfx::Box> progressClickArea;
+    touchgfx::Box progressFill;
+    touchgfx::TextAreaWithOneWildcard progressPctText;
+    touchgfx::Unicode::UnicodeChar progressPctBuf[16];
+    touchgfx::Callback<Data_screenView, const touchgfx::Box&, const touchgfx::ClickEvent&> progressClickCb;
+    void onProgressClick(const touchgfx::Box& src, const touchgfx::ClickEvent& evt);
     bool playbackUiShown;   /* 回放 UI 是否已显示（检测 mode 0↔1 切换 UI）*/
 };
 

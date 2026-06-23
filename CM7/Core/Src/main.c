@@ -90,6 +90,9 @@ volatile uint8_t  g_playback_stop = 0;
 volatile uint8_t  g_playback_pause = 0;
 volatile uint8_t  g_playback_step = 0;
 volatile uint8_t  g_playback_file_idx = 0;
+volatile uint32_t g_playback_file_size = 0;
+volatile uint32_t g_playback_buf_start = 0;
+volatile uint8_t  g_playback_reload = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/

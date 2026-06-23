@@ -108,6 +108,9 @@ extern volatile uint8_t  g_playback_stop;    /* UI 设 1 请求停止回放 */
 extern volatile uint8_t  g_playback_pause;   /* 1=暂停自动推进（手动 step）*/
 extern volatile uint8_t  g_playback_step;    /* UI 设 1 手动推进 1 字节 */
 extern volatile uint8_t  g_playback_file_idx;/* 回放文件在 g_file_list 的索引 */
+extern volatile uint32_t g_playback_file_size;/* 文件总大小（分块回放：pos 是全局文件位置，不是 buf 内）*/
+extern volatile uint32_t g_playback_buf_start;/* buf 对应文件 [buf_start, buf_start+g_playback_len) */
+extern volatile uint8_t  g_playback_reload;   /* UI 设 1 请求 defaultTask 重读 buf（pos 超出当前块）*/
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

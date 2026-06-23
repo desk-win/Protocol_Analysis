@@ -294,13 +294,25 @@ void StartDefaultTask(void *argument)
         {
           UINT br = 0;
           f_read(&play_file, g_playback_buf, PLAYBACK_BUF_SIZE, &br);
-          g_playback_len = br;
+          g_playback_len = br;            /* 首块有效字节 */
+          g_playback_buf_start = 0;       /* buf 对应文件 [0, br) */
+          g_playback_file_size = f_size(&play_file);  /* 文件总大小（支持 >4KB 分块）*/
           g_playback_pos = 0;
           g_playback_pause = 1;   /* 进回放默认暂停，用户点 Run 才自动播放 */
           g_playback_mode = 1;
           play_opened = 1;
         }
       }
+    }
+    /* 分块重读：UI pos 超出当前 buf 范围时请求 reload，f_lseek + f_read 新块 */
+    if (g_playback_reload && play_opened)
+    {
+      g_playback_reload = 0;
+      UINT br = 0;
+      f_lseek(&play_file, g_playback_pos);
+      f_read(&play_file, g_playback_buf, PLAYBACK_BUF_SIZE, &br);
+      g_playback_buf_start = g_playback_pos;
+      g_playback_len = br;
     }
     if (g_playback_stop && play_opened)
     {

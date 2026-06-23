@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <texts/TextKeysAndLanguages.hpp>
 #include <images/BitmapDatabase.hpp>   /* 按钮 bitmap ID（modal 按钮）*/
-#include <main.h>   /* g_playback_*/g_record_*/g_file_* 全局 */
+#include <main.h>   /* g_playback / g_record / g_file 全局 */
 #include <shared_buf.h>
 #include "stm32h7xx.h"   /* SCB_InvalidateDCache_by_Addr（MPU non-cacheable 未生效，手动 invalidate）*/
 
@@ -20,7 +20,8 @@ Data_screenView::Data_screenView()
       pbCb(this, &Data_screenView::onPauseClick),
       prevCb(this, &Data_screenView::onPrevClick),
       nextCb(this, &Data_screenView::onNextClick),
-      stopCb(this, &Data_screenView::onStopClick)
+      stopCb(this, &Data_screenView::onStopClick),
+      progressClickCb(this, &Data_screenView::onProgressClick)
 {
     shmCountBuf[0] = 0;
     modalBuf[0] = 0;
@@ -143,6 +144,23 @@ void Data_screenView::setupScreen()
     stopText.setPosition(420, 412, 80, 32); stopText.setTypedText(TypedText(T___SINGLEUSE_T387)); stopText.setWildcard(stopLblBuf); stopText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(stopText);
     pbBtn.setVisible(false); prevBtn.setVisible(false); nextBtn.setVisible(false); stopBtn.setVisible(false);
     pbText.setVisible(false); prevText.setVisible(false); nextText.setVisible(false); stopText.setVisible(false);
+
+    /* 回放进度条（回放模式显示）：底 Box 接点击/拖动定位，上 Box 显示已播放宽度 + 百分比 */
+    progressClickArea.setPosition(20, 455, 760, 20);
+    progressClickArea.setColor(touchgfx::Color::getColorFromRGB(80, 80, 80));
+    progressClickArea.setClickAction(progressClickCb);
+    add(progressClickArea);
+    progressFill.setPosition(20, 455, 0, 20);   /* 宽度随 pos 动态变 */
+    progressFill.setColor(touchgfx::Color::getColorFromRGB(0, 180, 0));
+    add(progressFill);
+    progressPctText.setPosition(540, 432, 100, 20);
+    progressPctText.setTypedText(TypedText(T___SINGLEUSE_T387));
+    progressPctText.setWildcard(progressPctBuf);
+    progressPctText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
+    add(progressPctText);
+    progressClickArea.setVisible(false);
+    progressFill.setVisible(false);
+    progressPctText.setVisible(false);
 }
 
 void Data_screenView::tearDownScreen()
@@ -193,29 +211,45 @@ void Data_screenView::handleTickEvent()
             prevText.setVisible(true); prevText.invalidate();
             nextText.setVisible(true); nextText.invalidate();
             stopText.setVisible(true); stopText.invalidate();
+            progressClickArea.setVisible(true); progressClickArea.invalidate();
+            progressFill.setVisible(true);       progressFill.invalidate();
         }
         char pbtmp[48];
-        snprintf(pbtmp, sizeof(pbtmp), "PLAY %lu/%lu",
-                 (unsigned long)g_playback_pos, (unsigned long)g_playback_len);
+        uint32_t pct = (g_playback_file_size > 0) ? (uint32_t)((uint64_t)g_playback_pos * 100 / g_playback_file_size) : 0;
+        snprintf(pbtmp, sizeof(pbtmp), "PLAY %lu/%lu  %lu pct",
+                 (unsigned long)g_playback_pos, (unsigned long)g_playback_file_size, (unsigned long)pct);
         touchgfx::Unicode::strncpy(shmCountBuf, pbtmp, sizeof(shmCountBuf)/sizeof(shmCountBuf[0]));
         shmCountText.setWildcard(shmCountBuf);
         shmCountText.invalidate();
-        /* 波形每 5 tick 画一次 + 自动推进（!pause）/ 手动 step */
+        /* 波形每 5 tick 画一次 */
         static int pb_div = 0;
         if (++pb_div < 5) return;
         pb_div = 0;
-        /* !pause 时自动推进（Run 模式）；Prev/Next 按钮直接改 pos，不需这里处理 */
-        if (!g_playback_pause && g_playback_pos < g_playback_len) g_playback_pos++;
-        if (g_playback_pos >= g_playback_len) g_playback_stop = 1;   /* 回放完，defaultTask 关文件 */
+        /* !pause 自动推进（Run）；边界用 file_size（文件总大小，支持 >4KB 分块）*/
+        if (!g_playback_pause && g_playback_pos < g_playback_file_size) g_playback_pos++;
+        if (g_playback_pos >= g_playback_file_size) g_playback_stop = 1;
+        /* 分块：pos 在 buf [buf_start, buf_start+len) 内才画，否则请求 defaultTask reload */
         const int N = 6;
-        uint8_t bytes[N];
-        for (int i = 0; i < N; i++)
+        if (g_playback_pos >= g_playback_buf_start &&
+            g_playback_pos + N <= g_playback_buf_start + g_playback_len)
         {
-            uint32_t p = g_playback_pos + i;
-            bytes[i] = (p < g_playback_len) ? g_playback_buf[p] : 0;
+            uint32_t off = g_playback_pos - g_playback_buf_start;
+            uint8_t bytes[N];
+            for (int i = 0; i < N; i++) bytes[i] = g_playback_buf[off + i];
+            waveWidget.setBytes(bytes, N);
+            waveWidget.invalidate();
         }
-        waveWidget.setBytes(bytes, N);
-        waveWidget.invalidate();
+        else
+        {
+            g_playback_reload = 1;   /* pos 超出当前块，请求 defaultTask f_lseek+f_read 新块 */
+        }
+        /* 进度条宽度 + 百分比（pos/file_size）*/
+        if (g_playback_file_size > 0)
+        {
+            uint32_t w = (uint32_t)((uint64_t)g_playback_pos * 760 / g_playback_file_size);
+            progressFill.setPosition(20, 455, w, 20);
+            progressClickArea.invalidate();   /* 重绘全宽进度条区域，清右侧残留涂色 */
+        }
         return;
     }
     /* 回放刚结束（mode 1→0）且 UI 还是回放态 → 恢复实时 UI */
@@ -232,6 +266,8 @@ void Data_screenView::handleTickEvent()
         prevText.setVisible(false); prevText.invalidate();
         nextText.setVisible(false); nextText.invalidate();
         stopText.setVisible(false); stopText.invalidate();
+        progressClickArea.setVisible(false); progressClickArea.invalidate();
+        progressFill.setVisible(false);       progressFill.invalidate();
     }
 
     /* modal 确认中暂停波形（否则波形刷新盖住 modal 面板）*/
@@ -402,13 +438,25 @@ void Data_screenView::onPrevClick(const touchgfx::AbstractButton&)
 {
     if (g_playback_pos > 0) g_playback_pos--;
 }
-/* 下一步：pos++（到 len 停）*/
+/* 下一步：pos++（到 file_size 停；分块回放支持 >4KB）*/
 void Data_screenView::onNextClick(const touchgfx::AbstractButton&)
 {
-    if (g_playback_pos < g_playback_len) g_playback_pos++;
+    if (g_playback_pos < g_playback_file_size) g_playback_pos++;
 }
 void Data_screenView::onStopClick(const touchgfx::AbstractButton&)
 {
     g_playback_stop = 1;
     application().gotostart_screenScreenNoTransition();
+}
+
+/* 进度条点击/拖动：点击 x 坐标 → pos = x/760 * file_size + reload 该位置 */
+void Data_screenView::onProgressClick(const touchgfx::Box& src, const touchgfx::ClickEvent& evt)
+{
+    (void)src;
+    if (!g_playback_mode || g_playback_file_size == 0) return;
+    int16_t x = evt.getX();   /* 相对 progressClickArea 的 x（0..760）*/
+    if (x < 0) x = 0;
+    if (x > 760) x = 760;
+    g_playback_pos = (uint32_t)((uint64_t)x * g_playback_file_size / 760);
+    g_playback_reload = 1;   /* pos 跳变，请求 defaultTask 重读 buf */
 }
