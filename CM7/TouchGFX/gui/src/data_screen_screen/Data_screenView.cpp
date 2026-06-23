@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <texts/TextKeysAndLanguages.hpp>
 #include <images/BitmapDatabase.hpp>   /* 按钮 bitmap ID（modal 按钮）*/
+#include <main.h>   /* g_playback_*/g_record_*/g_file_* 全局 */
 #include <shared_buf.h>
 #include "stm32h7xx.h"   /* SCB_InvalidateDCache_by_Addr（MPU non-cacheable 未生效，手动 invalidate）*/
 
@@ -15,13 +16,19 @@ Data_screenView::Data_screenView()
       backCb(this, &Data_screenView::onBackClick),
       keepCb(this, &Data_screenView::onKeepClick),
       discardCb(this, &Data_screenView::onDiscardClick),
-      cancelCb(this, &Data_screenView::onCancelClick)
+      cancelCb(this, &Data_screenView::onCancelClick),
+      pbCb(this, &Data_screenView::onPauseClick),
+      prevCb(this, &Data_screenView::onPrevClick),
+      nextCb(this, &Data_screenView::onNextClick),
+      stopCb(this, &Data_screenView::onStopClick)
 {
     shmCountBuf[0] = 0;
     modalBuf[0] = 0;
     modalPending = PENDING_NONE;
+    modalSwitchProto = 0;
     modalState = MODAL_HIDDEN;
     resultTicks = 0;
+    playbackUiShown = false;
 }
 
 void Data_screenView::setupScreen()
@@ -118,6 +125,24 @@ void Data_screenView::setupScreen()
     modalOverlay.setPosition(0, 0, 800, 480);
     modalOverlay.setVisible(false);
     add(modalOverlay);   /* 最后 add = 最上层 */
+
+    /* 回放控制按钮（g_playback_mode=1 时显示，初始隐藏；handleTickEvent 检测 mode 切换）*/
+    const touchgfx::Bitmap pbN(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_NORMAL_ID);
+    const touchgfx::Bitmap pbP(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_PRESSED_ID);
+    pbBtn.setXY(50, 410);   pbBtn.setBitmaps(pbN, pbP);   pbBtn.setAction(pbCb);   add(pbBtn);
+    prevBtn.setXY(170, 410); prevBtn.setBitmaps(pbN, pbP); prevBtn.setAction(prevCb); add(prevBtn);
+    nextBtn.setXY(290, 410); nextBtn.setBitmaps(pbN, pbP); nextBtn.setAction(nextCb); add(nextBtn);
+    stopBtn.setXY(410, 410); stopBtn.setBitmaps(pbN, pbP); stopBtn.setAction(stopCb); add(stopBtn);
+    touchgfx::Unicode::strncpy(pbLblBuf, "Run", 12);      /* 进回放默认暂停，按钮显示 Run（点后切换）*/
+    touchgfx::Unicode::strncpy(prevLblBuf, "Prev", 12);
+    touchgfx::Unicode::strncpy(nextLblBuf, "Next", 12);
+    touchgfx::Unicode::strncpy(stopLblBuf, "Stop", 12);
+    pbText.setPosition(60, 412, 80, 32);   pbText.setTypedText(TypedText(T___SINGLEUSE_T387));   pbText.setWildcard(pbLblBuf);   pbText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(pbText);
+    prevText.setPosition(180, 412, 80, 32); prevText.setTypedText(TypedText(T___SINGLEUSE_T387)); prevText.setWildcard(prevLblBuf); prevText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(prevText);
+    nextText.setPosition(300, 412, 80, 32); nextText.setTypedText(TypedText(T___SINGLEUSE_T387)); nextText.setWildcard(nextLblBuf); nextText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(nextText);
+    stopText.setPosition(420, 412, 80, 32); stopText.setTypedText(TypedText(T___SINGLEUSE_T387)); stopText.setWildcard(stopLblBuf); stopText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(stopText);
+    pbBtn.setVisible(false); prevBtn.setVisible(false); nextBtn.setVisible(false); stopBtn.setVisible(false);
+    pbText.setVisible(false); prevText.setVisible(false); nextText.setVisible(false); stopText.setVisible(false);
 }
 
 void Data_screenView::tearDownScreen()
@@ -149,6 +174,64 @@ void Data_screenView::handleTickEvent()
             if (pend == PENDING_BACK) application().gotostart_screenScreenNoTransition();
         }
         return;   /* 结果期间不刷新波形 */
+    }
+
+    /* 回放模式（g_playback_mode=1）：画文件字节，忽略共享内存实时数据 */
+    if (g_playback_mode)
+    {
+        if (!playbackUiShown)
+        {
+            playbackUiShown = true;
+            choose.setVisible(false);        choose.invalidate();
+            choose_contain.setVisible(false); choose_contain.invalidate();
+            back_data.setVisible(false);     back_data.invalidate();
+            pbBtn.setVisible(true);  pbBtn.invalidate();
+            prevBtn.setVisible(true); prevBtn.invalidate();
+            nextBtn.setVisible(true); nextBtn.invalidate();
+            stopBtn.setVisible(true); stopBtn.invalidate();
+            pbText.setVisible(true);  pbText.invalidate();
+            prevText.setVisible(true); prevText.invalidate();
+            nextText.setVisible(true); nextText.invalidate();
+            stopText.setVisible(true); stopText.invalidate();
+        }
+        char pbtmp[48];
+        snprintf(pbtmp, sizeof(pbtmp), "PLAY %lu/%lu",
+                 (unsigned long)g_playback_pos, (unsigned long)g_playback_len);
+        touchgfx::Unicode::strncpy(shmCountBuf, pbtmp, sizeof(shmCountBuf)/sizeof(shmCountBuf[0]));
+        shmCountText.setWildcard(shmCountBuf);
+        shmCountText.invalidate();
+        /* 波形每 5 tick 画一次 + 自动推进（!pause）/ 手动 step */
+        static int pb_div = 0;
+        if (++pb_div < 5) return;
+        pb_div = 0;
+        /* !pause 时自动推进（Run 模式）；Prev/Next 按钮直接改 pos，不需这里处理 */
+        if (!g_playback_pause && g_playback_pos < g_playback_len) g_playback_pos++;
+        if (g_playback_pos >= g_playback_len) g_playback_stop = 1;   /* 回放完，defaultTask 关文件 */
+        const int N = 6;
+        uint8_t bytes[N];
+        for (int i = 0; i < N; i++)
+        {
+            uint32_t p = g_playback_pos + i;
+            bytes[i] = (p < g_playback_len) ? g_playback_buf[p] : 0;
+        }
+        waveWidget.setBytes(bytes, N);
+        waveWidget.invalidate();
+        return;
+    }
+    /* 回放刚结束（mode 1→0）且 UI 还是回放态 → 恢复实时 UI */
+    if (playbackUiShown)
+    {
+        playbackUiShown = false;
+        choose.setVisible(true);    choose.invalidate();
+        back_data.setVisible(true); back_data.invalidate();
+        pbBtn.setVisible(false);  pbBtn.invalidate();
+        prevBtn.setVisible(false); prevBtn.invalidate();
+        nextBtn.setVisible(false); nextBtn.invalidate();
+        stopBtn.setVisible(false); stopBtn.invalidate();
+        pbText.setVisible(false);  pbText.invalidate();
+        prevText.setVisible(false); prevText.invalidate();
+        nextText.setVisible(false); nextText.invalidate();
+        stopText.setVisible(false); stopText.invalidate();
     }
 
     /* modal 确认中暂停波形（否则波形刷新盖住 modal 面板）*/
@@ -188,6 +271,7 @@ void Data_screenView::onUartClick(const touchgfx::AbstractButton&)
     extern volatile uint8_t g_record_req;
     extern volatile uint8_t g_record_active;
     if (g_record_active == 1) { showConfirmModal(PENDING_NONE); return; }
+    if (g_record_active != 0) { modalSwitchProto = 1; showConfirmModal(PENDING_SWITCH); return; }
     g_record_req = 1;
 }
 void Data_screenView::onSpiClick(const touchgfx::AbstractButton&)
@@ -195,6 +279,7 @@ void Data_screenView::onSpiClick(const touchgfx::AbstractButton&)
     extern volatile uint8_t g_record_req;
     extern volatile uint8_t g_record_active;
     if (g_record_active == 2) { showConfirmModal(PENDING_NONE); return; }
+    if (g_record_active != 0) { modalSwitchProto = 2; showConfirmModal(PENDING_SWITCH); return; }
     g_record_req = 2;
 }
 void Data_screenView::onI2cClick(const touchgfx::AbstractButton&)
@@ -202,6 +287,7 @@ void Data_screenView::onI2cClick(const touchgfx::AbstractButton&)
     extern volatile uint8_t g_record_req;
     extern volatile uint8_t g_record_active;
     if (g_record_active == 3) { showConfirmModal(PENDING_NONE); return; }
+    if (g_record_active != 0) { modalSwitchProto = 3; showConfirmModal(PENDING_SWITCH); return; }
     g_record_req = 3;
 }
 void Data_screenView::onCanClick(const touchgfx::AbstractButton&)
@@ -209,6 +295,7 @@ void Data_screenView::onCanClick(const touchgfx::AbstractButton&)
     extern volatile uint8_t g_record_req;
     extern volatile uint8_t g_record_active;
     if (g_record_active == 4) { showConfirmModal(PENDING_NONE); return; }
+    if (g_record_active != 0) { modalSwitchProto = 4; showConfirmModal(PENDING_SWITCH); return; }
     g_record_req = 4;
 }
 
@@ -227,7 +314,8 @@ void Data_screenView::onKeepClick(const touchgfx::AbstractButton&)
     extern volatile uint8_t g_record_active;
     extern volatile uint8_t g_record_discard;
     g_record_discard = 0;
-    g_record_req = g_record_active;      /* 触发 defaultTask 停止（保留）*/
+    /* PENDING_SWITCH → 切到目标协议；NONE/BACK → 停止当前 */
+    g_record_req = (modalPending == PENDING_SWITCH) ? modalSwitchProto : g_record_active;
     touchgfx::Unicode::strncpy(modalBuf, "Saved!", 32);
     modalText.setWildcard(modalBuf);
     modalText.invalidate();
@@ -245,7 +333,8 @@ void Data_screenView::onDiscardClick(const touchgfx::AbstractButton&)
     extern volatile uint8_t g_record_active;
     extern volatile uint8_t g_record_discard;
     g_record_discard = 1;                /* 删除（defaultTask f_unlink）*/
-    g_record_req = g_record_active;      /* 触发停止 */
+    /* PENDING_SWITCH → 切到目标协议（删当前后）；NONE/BACK → 停止当前 */
+    g_record_req = (modalPending == PENDING_SWITCH) ? modalSwitchProto : g_record_active;
     touchgfx::Unicode::strncpy(modalBuf, "Deleted!", 32);
     modalText.setWildcard(modalBuf);
     modalText.invalidate();
@@ -294,5 +383,32 @@ void Data_screenView::hideConfirmModal()
     waveWidget.setVisible(true);
     waveWidget.invalidate();
     modalPending = PENDING_NONE;
+    modalSwitchProto = 0;
     modalState = MODAL_HIDDEN;
+}
+
+/* Run/Pause 切换：进回放默认 Pause（按钮 Run），点后 pause=0 自动播放，标签变 Pause */
+void Data_screenView::onPauseClick(const touchgfx::AbstractButton&)
+{
+    g_playback_pause = !g_playback_pause;
+    if (g_playback_mode) {
+        touchgfx::Unicode::strncpy(pbLblBuf, g_playback_pause ? "Run" : "Pause", 12);
+        pbText.setWildcard(pbLblBuf);
+        pbText.invalidate();
+    }
+}
+/* 上一步：pos--（不低于 0）*/
+void Data_screenView::onPrevClick(const touchgfx::AbstractButton&)
+{
+    if (g_playback_pos > 0) g_playback_pos--;
+}
+/* 下一步：pos++（到 len 停）*/
+void Data_screenView::onNextClick(const touchgfx::AbstractButton&)
+{
+    if (g_playback_pos < g_playback_len) g_playback_pos++;
+}
+void Data_screenView::onStopClick(const touchgfx::AbstractButton&)
+{
+    g_playback_stop = 1;
+    application().gotostart_screenScreenNoTransition();
 }

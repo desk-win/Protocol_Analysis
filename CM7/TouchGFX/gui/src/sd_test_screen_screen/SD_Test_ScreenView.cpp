@@ -1,6 +1,7 @@
 #include <gui/sd_test_screen_screen/SD_Test_ScreenView.hpp>
 #include <touchgfx/Color.hpp>
 #include <stdio.h>
+#include <images/BitmapDatabase.hpp>
 #include <touch.h>
 #include <bsp_driver_sd.h>
 #include <sdmmc.h>
@@ -158,9 +159,16 @@ static int sd_nand_full_test(void)
 
 SD_Test_ScreenView::SD_Test_ScreenView()
     : touchDotAdded(false), sdTestDone(false), sdTestResult(-1),
-      fatfsResult(-1), tickCount(0), sdStatusBarAdded(false)
+      fatfsResult(-1), tickCount(0), sdStatusBarAdded(false),
+      upCb(this, &SD_Test_ScreenView::onUpClick),
+      downCb(this, &SD_Test_ScreenView::onDownClick),
+      playCb(this, &SD_Test_ScreenView::onPlayClick),
+      deleteCb(this, &SD_Test_ScreenView::onDeleteClick),
+      lastFileCount(0), lastFileSel(0),
+      delConfirmPending(false), delConfirmTicks(0)
 {
     capacityBuf[0] = 0;
+    fileBuf[0] = 0;
 }
 
 void SD_Test_ScreenView::setupScreen()
@@ -187,12 +195,33 @@ void SD_Test_ScreenView::setupScreen()
     textArea1.setPosition(20, 200, 760, 40);
     textArea1.invalidate();
 
-    /* 文件列表显示区（容量下方）*/
-    fileText.setPosition(20, 260, 760, 160);
+    /* 文件列表显示区（容量下方，缩高腾出按钮位）*/
+    fileText.setPosition(20, 260, 760, 140);
     fileText.setTypedText(TypedText(T___SINGLEUSE_T387));
     fileText.setWildcard(fileBuf);
     fileText.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
     add(fileText);
+
+    /* selector 按钮 ^/v/Play/Delete（ButtonWithLabel 当 Button，标签 TextArea 叠加）*/
+    const touchgfx::Bitmap btnN(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_NORMAL_ID);
+    const touchgfx::Bitmap btnP(BITMAP_ALTERNATE_THEME_IMAGES_WIDGETS_BUTTON_REGULAR_HEIGHT_36_TINY_ROUNDED_PRESSED_ID);
+    upBtn.setXY(180, 410);     upBtn.setBitmaps(btnN, btnP);     upBtn.setAction(upCb);     add(upBtn);
+    downBtn.setXY(290, 410);   downBtn.setBitmaps(btnN, btnP);   downBtn.setAction(downCb); add(downBtn);
+    playBtn.setXY(400, 410);   playBtn.setBitmaps(btnN, btnP);   playBtn.setAction(playCb); add(playBtn);
+    deleteBtn.setXY(530, 410); deleteBtn.setBitmaps(btnN, btnP); deleteBtn.setAction(deleteCb); add(deleteBtn);
+
+    touchgfx::Unicode::strncpy(upLblBuf, "Up", 8);
+    touchgfx::Unicode::strncpy(downLblBuf, "Dn", 8);
+    touchgfx::Unicode::strncpy(playLblBuf, "Play", 8);
+    touchgfx::Unicode::strncpy(deleteLblBuf, "Delete", 8);
+    upText.setPosition(195, 412, 60, 32);     upText.setTypedText(TypedText(T___SINGLEUSE_T387));     upText.setWildcard(upLblBuf);     upText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(upText);
+    downText.setPosition(305, 412, 60, 32);   downText.setTypedText(TypedText(T___SINGLEUSE_T387));   downText.setWildcard(downLblBuf); downText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(downText);
+    playText.setPosition(415, 412, 80, 32);   playText.setTypedText(TypedText(T___SINGLEUSE_T387));   playText.setWildcard(playLblBuf); playText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(playText);
+    deleteText.setPosition(545, 412, 80, 32); deleteText.setTypedText(TypedText(T___SINGLEUSE_T387)); deleteText.setWildcard(deleteLblBuf); deleteText.setColor(touchgfx::Color::getColorFromRGB(255,255,255)); add(deleteText);
+
+    /* 启动时请求扫描一次（main.c 已设 g_file_refresh=1，这里再设保险）*/
+    g_file_refresh = 1;
+    refreshFileList();
 }
 
 void SD_Test_ScreenView::tearDownScreen()
@@ -200,9 +229,89 @@ void SD_Test_ScreenView::tearDownScreen()
     SD_Test_ScreenViewBase::tearDownScreen();
 }
 
+/* selector ^/v：上下切换选中文件（tick 检测 g_file_sel 变化自动刷新显示）*/
+void SD_Test_ScreenView::onUpClick(const touchgfx::AbstractButton&)
+{
+    if (g_file_count == 0) return;
+    g_file_sel = (g_file_sel == 0) ? (g_file_count - 1) : (g_file_sel - 1);
+}
+void SD_Test_ScreenView::onDownClick(const touchgfx::AbstractButton&)
+{
+    if (g_file_count == 0) return;
+    g_file_sel = (g_file_sel + 1) % g_file_count;
+}
+
+/* Delete：双击确认。第一次点提示"Press Del again"，3 秒内再点才真删（防误删）*/
+void SD_Test_ScreenView::onDeleteClick(const touchgfx::AbstractButton&)
+{
+    if (g_file_count == 0) return;
+    if (delConfirmPending)
+    {
+        delConfirmPending = false;
+        delConfirmTicks = 0;
+        g_file_delete = 1;   /* 第二次点：确认删除，defaultTask f_unlink + 重扫 */
+    }
+    else
+    {
+        delConfirmPending = true;
+        delConfirmTicks = 180;   /* 3 秒内再点确认（60Hz tick）*/
+        refreshFileList();       /* 显示 "Press Del again" */
+    }
+}
+
+/* Play：请求回放当前选中文件，跳 data_screen 回放模式（defaultTask 读文件 → 画波）*/
+void SD_Test_ScreenView::onPlayClick(const touchgfx::AbstractButton&)
+{
+    if (g_file_count == 0 || g_file_sel >= g_file_count) return;
+    g_playback_file_idx = g_file_sel;
+    g_playback_req = 1;
+    application().gotoData_screenScreenNoTransition();
+}
+
+/* 按 g_file_list/g_file_sel 更新 fileText（当前选中文件 + 索引/总数）*/
+void SD_Test_ScreenView::refreshFileList()
+{
+    char tmp[80];
+    if (g_file_count == 0 || g_file_sel >= g_file_count)
+    {
+        snprintf(tmp, sizeof(tmp), "(scanning or no files)");
+    }
+    else if (delConfirmPending)
+    {
+        snprintf(tmp, sizeof(tmp), "Del %s? Press Del again",
+                 g_file_list[g_file_sel].name);
+    }
+    else
+    {
+        const char *type = (g_file_list[g_file_sel].type == 0) ? "D" :
+                           (g_file_list[g_file_sel].type == 1) ? "A" : "?";
+        snprintf(tmp, sizeof(tmp), "* %s %s  %luKB  [%u/%u]",
+                 type, g_file_list[g_file_sel].name,
+                 (unsigned long)g_file_list[g_file_sel].size_kb,
+                 (unsigned)(g_file_sel + 1), (unsigned)g_file_count);
+    }
+    touchgfx::Unicode::strncpy(fileBuf, tmp, 200);
+    fileText.setWildcard(fileBuf);
+    fileText.invalidate();
+}
+
 void SD_Test_ScreenView::handleTickEvent()
 {
     SD_Test_ScreenViewBase::handleTickEvent();
+
+    /* defaultTask 扫描结果(g_file_count)或 selector 变化时刷新文件列表显示 */
+    if (g_file_count != lastFileCount || g_file_sel != lastFileSel)
+    {
+        lastFileCount = g_file_count;
+        lastFileSel = g_file_sel;
+        refreshFileList();
+    }
+    /* Delete 确认超时：3 秒内没再点，取消 pending，恢复显示 */
+    if (delConfirmPending && --delConfirmTicks <= 0)
+    {
+        delConfirmPending = false;
+        refreshFileList();
+    }
 
     if (!sdTestDone)
     {
@@ -287,12 +396,8 @@ void SD_Test_ScreenView::handleTickEvent()
                 textArea1.setWildcard(capacityBuf);
                 textArea1.invalidate();
 
-                /* 文件列表暂时禁用（f_opendir 和 defaultTask SD 操作冲突导致卡死）。
-                 * 后续改用 defaultTask 列文件到全局变量，SD_Test_Screen 只读显示。*/
-                touchgfx::Unicode::strncpy(fileBuf, "File list disabled (SD conflict)",
-                    sizeof(fileBuf) / sizeof(fileBuf[0]));
-                fileText.setWildcard(fileBuf);
-                fileText.invalidate();
+                /* 文件列表由 fileText 显示（setupScreen 初始化 + handleTickEvent 刷新检测），
+                 * 不再在此覆盖。原 "File list disabled" 是旧禁用提示，已删。*/
             }
         }
     }

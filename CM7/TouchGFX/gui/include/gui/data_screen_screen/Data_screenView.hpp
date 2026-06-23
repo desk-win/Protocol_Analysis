@@ -58,9 +58,21 @@ protected:
     touchgfx::Unicode::UnicodeChar keepLblBuf[16];
     touchgfx::Unicode::UnicodeChar discardLblBuf[16];
     touchgfx::Unicode::UnicodeChar cancelLblBuf[16];
-    enum { PENDING_NONE = 0, PENDING_BACK = 1 } modalPending;
+    enum { PENDING_NONE = 0, PENDING_BACK = 1, PENDING_SWITCH = 2 } modalPending;
+    uint8_t modalSwitchProto;   /* PENDING_SWITCH 时目标协议号 1-4（点别协议时存）*/
     enum { MODAL_HIDDEN, MODAL_CONFIRM, MODAL_RESULT } modalState;
     int resultTicks;   /* 结果显示倒计时（Saved!/Discarded! 显示多久后 hide+执行 pending）*/
+
+    /* 回放控制（g_playback_mode=1 时显示）：Run/Pause + Prev + Next + Stop */
+    touchgfx::ButtonWithLabel pbBtn, prevBtn, nextBtn, stopBtn;
+    touchgfx::TextAreaWithOneWildcard pbText, prevText, nextText, stopText;
+    touchgfx::Unicode::UnicodeChar pbLblBuf[12], prevLblBuf[12], nextLblBuf[12], stopLblBuf[12];
+    touchgfx::Callback<Data_screenView, const touchgfx::AbstractButton&> pbCb, prevCb, nextCb, stopCb;
+    void onPauseClick(const touchgfx::AbstractButton&);   /* Run/Pause 切换（进回放默认 Pause，按钮显示 Run）*/
+    void onPrevClick(const touchgfx::AbstractButton&);    /* 上一步 pos-- */
+    void onNextClick(const touchgfx::AbstractButton&);    /* 下一步 pos++ */
+    void onStopClick(const touchgfx::AbstractButton&);
+    bool playbackUiShown;   /* 回放 UI 是否已显示（检测 mode 0↔1 切换 UI）*/
 };
 
 #endif // DATA_SCREENVIEW_HPP

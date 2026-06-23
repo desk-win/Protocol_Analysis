@@ -32,6 +32,7 @@
 #include "fatfs.h"          /* f_mount/f_open/f_write + SDFatFS/SDPath/FIL */
 #include "sdmmc.h"          /* hsd2（HAL_SD_GetCardInfo 填容量给 SD_Test_Screen）*/
 #include <stdio.h>          /* snprintf（文件序号命名）*/
+#include <string.h>         /* strrchr/strncpy/strncmp/strcmp（文件列表扫描）*/
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -215,14 +216,100 @@ void StartDefaultTask(void *argument)
   /* 4 协议按钮记录控制（方案A：按钮控制 CM7 记录，CM4 持续发）*/
   extern volatile uint8_t g_record_req;     /* 按钮请求：0=无, 1=UART, 2=SPI, 3=I2C, 4=CAN */
   extern volatile uint8_t g_record_active;  /* 当前记录：0=没记, 1-4=协议 */
-  static const char *proto_files[4] = {
-    "0:protocol_uart.log", "0:protocol_spi.log", "0:protocol_i2c.log", "0:protocol_can.log"
-  };
+  /* 文件名前缀分类：d_=数字信号(方波), a_=模拟信号(未来折线)。
+   * 每协议保留 PROTO_FILE_COUNT 个文件，轮转序号（d_uart_1.log, d_uart_2.log, ...）。
+   * 文件列表 f_opendir 按前缀判断类型，回放按类型选 widget。*/
+  #define PROTO_FILE_COUNT 3   /* 每协议保留文件数（留余地，后续可改大）*/
+  static const char *proto_names[4] = { "uart", "spi", "i2c", "can" };
+  static uint8_t proto_seq[4] = {0, 0, 0, 0};   /* 每协议当前序号（0..PROTO_FILE_COUNT-1 轮转覆盖）*/
+  static char current_path[24] = "";            /* 当前记录文件路径（停止时 f_unlink 用）*/
 
   /* 共享内存已通(CM4→CM7 单向)。CM7 用本地 read_pos 消费 data，
    * 不写共享 tail（CM7→CM4 方向不通）。字节同时累积到 SD 缓冲。*/
   for(;;)
   {
+    /* 文件列表服务（defaultTask 唯一 SD 访问者）：仅没记录时(sd_ready=0)扫描/删除，
+     * 避免和 sd_file 的 FatFs 共享状态冲突。UI 在 SD_Test_Screen 设 g_file_refresh/g_file_delete。*/
+    if (g_sd_status == 4U && !sd_ready)
+    {
+      if (g_file_refresh)
+      {
+        g_file_refresh = 0;
+        g_file_count = 0;
+        DIR dir;
+        FILINFO fno;
+        /* f_opendir 重试 3 次（SD NAND 偶发 DISK_ERR，和 f_getfree/f_open 同特性，
+         * 失败则 g_file_count=0，UI 显示 scanning，下轮 g_file_refresh 再触发）*/
+        FRESULT od = FR_DISK_ERR;
+        for (int od_retry = 0; od_retry < 3; od_retry++)
+        {
+          od = f_opendir(&dir, "0:");
+          if (od == FR_OK) break;
+          osDelay(50);
+        }
+        if (od == FR_OK)
+        {
+          while (g_file_count < MAX_FILES)
+          {
+            if (f_readdir(&dir, &fno) != FR_OK || fno.fname[0] == 0) break;
+            const char *dot = strrchr(fno.fname, '.');
+            if (dot && (strcmp(dot, ".log") == 0 || strcmp(dot, ".LOG") == 0))
+            {
+              strncpy(g_file_list[g_file_count].name, fno.fname, 23);
+              g_file_list[g_file_count].name[23] = 0;
+              if      (strncmp(fno.fname, "d_", 2) == 0) g_file_list[g_file_count].type = 0;  /* digital */
+              else if (strncmp(fno.fname, "a_", 2) == 0) g_file_list[g_file_count].type = 1;  /* analog */
+              else                                        g_file_list[g_file_count].type = 2;  /* 其他 */
+              g_file_list[g_file_count].size_kb = fno.fsize / 1024;
+              g_file_count++;
+            }
+          }
+          f_closedir(&dir);
+        }
+        if (g_file_sel >= g_file_count) g_file_sel = 0;  /* sel 越界回 0 */
+      }
+      if (g_file_delete && g_file_count > 0 && g_file_sel < g_file_count)
+      {
+        uint8_t sel = g_file_sel;
+        g_file_delete = 0;
+        char path[28];
+        snprintf(path, sizeof(path), "0:%s", g_file_list[sel].name);
+        f_unlink(path);
+        g_file_refresh = 1;  /* 删除后重扫刷新列表 */
+      }
+    }
+
+    /* 回放服务：UI 点 Play 设 g_playback_req → 开文件读 buf；g_playback_stop → 关文件。
+     * 回放期间用户在 data_screen，sd_ready=0（没记录），play_file 独立 FIL 不冲突。*/
+    static FIL  play_file;
+    static uint8_t play_opened = 0;
+    if (g_playback_req && !play_opened)
+    {
+      g_playback_req = 0;
+      if (g_sd_status == 4U && g_file_count > 0 && g_playback_file_idx < g_file_count)
+      {
+        char path[28];
+        snprintf(path, sizeof(path), "0:%s", g_file_list[g_playback_file_idx].name);
+        if (f_open(&play_file, path, FA_READ) == FR_OK)
+        {
+          UINT br = 0;
+          f_read(&play_file, g_playback_buf, PLAYBACK_BUF_SIZE, &br);
+          g_playback_len = br;
+          g_playback_pos = 0;
+          g_playback_pause = 1;   /* 进回放默认暂停，用户点 Run 才自动播放 */
+          g_playback_mode = 1;
+          play_opened = 1;
+        }
+      }
+    }
+    if (g_playback_stop && play_opened)
+    {
+      g_playback_stop = 0;
+      f_close(&play_file);
+      play_opened = 0;
+      g_playback_mode = 0;
+    }
+
     /* 处理按钮请求：按同按钮=停止记录，按别的=切换到新协议 */
     if (g_record_req != 0U)
     {
@@ -237,19 +324,26 @@ void StartDefaultTask(void *argument)
           uint8_t disc = g_record_discard;
           g_record_discard = 0U;
           if (sd_ready) { f_close(&sd_file); sd_ready = 0U; }
-          if (disc == 1U) f_unlink(proto_files[req - 1U]);
+          if (disc == 1U) f_unlink(current_path);   /* modal"不保存"删当前记录文件 */
           g_record_active = 0U;
           g_sd_written = 0U;   /* 字节数归零：旧文件结束，下次记录从 0 开始计 */
         }
         else if (req >= 1U && req <= 4U)
         {
-          /* 切换：停当前 + 开新协议文件（f_open 重试 3 次，SD NAND 偶发 DISK_ERR）。
-           * 失败设 st=30+FR 让 UI 可见，否则 g_record_active 不变像"按钮没反应"。*/
-          if (sd_ready) f_close(&sd_file);
+          /* 切换：停当前 + 开新协议文件（轮转序号 d_uart_1/2/3.log，每协议 PROTO_FILE_COUNT 个）*/
+          if (sd_ready) {
+            f_close(&sd_file);
+            extern volatile uint8_t g_record_discard;
+            if (g_record_discard) { g_record_discard = 0U; f_unlink(current_path); }  /* modal"不保存"切换：删当前 */
+          }
+          uint8_t seq = proto_seq[req - 1U];
+          snprintf(current_path, sizeof(current_path), "0:d_%s_%u.log",
+                   proto_names[req - 1U], seq + 1U);
+          proto_seq[req - 1U] = (uint8_t)((seq + 1U) % PROTO_FILE_COUNT);
           FRESULT fo = FR_DISK_ERR;
           for (int fo_retry = 0; fo_retry < 3; fo_retry++)
           {
-            fo = f_open(&sd_file, proto_files[req - 1U], FA_CREATE_ALWAYS | FA_WRITE);
+            fo = f_open(&sd_file, current_path, FA_CREATE_ALWAYS | FA_WRITE);
             if (fo == FR_OK) break;
             osDelay(50);
           }
