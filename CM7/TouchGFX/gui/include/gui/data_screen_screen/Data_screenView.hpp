@@ -69,11 +69,12 @@ protected:
     touchgfx::ButtonWithLabel pbBtn, prevBtn, nextBtn, stopBtn;
     touchgfx::TextAreaWithOneWildcard pbText, prevText, nextText, stopText;
     touchgfx::Unicode::UnicodeChar pbLblBuf[12], prevLblBuf[12], nextLblBuf[12], stopLblBuf[12];
-    touchgfx::Callback<Data_screenView, const touchgfx::AbstractButton&> pbCb, prevCb, nextCb, stopCb;
+    touchgfx::Callback<Data_screenView, const touchgfx::AbstractButton&> pbCb, prevCb, nextCb, stopCb, settingsCb;
     void onPauseClick(const touchgfx::AbstractButton&);   /* Run/Pause 切换（进回放默认 Pause，按钮显示 Run）*/
     void onPrevClick(const touchgfx::AbstractButton&);    /* 上一步 pos-- */
     void onNextClick(const touchgfx::AbstractButton&);    /* 下一步 pos++ */
     void onStopClick(const touchgfx::AbstractButton&);
+    void onSettingsClick(const touchgfx::AbstractButton&);   /* choose_contain 的 Settings 按钮跳设置屏 */
     /* 回放进度条（可点击/拖动定位，自绘 Box+ClickListener，等效 Slider 不依赖 bitmap）*/
     touchgfx::ClickListener<touchgfx::Box> progressClickArea;
     touchgfx::Box progressFill;

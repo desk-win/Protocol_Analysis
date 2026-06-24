@@ -18,7 +18,8 @@ public:
     void setBytes(const uint8_t *bytes, uint16_t count);
 
     /* 配置：每 bit 像素宽、高电平 Y、低电平 Y（widget 内坐标）、波形颜色、背景色、字节间隙 */
-    void setParams(uint16_t bitWidth, int16_t highY, int16_t lowY, touchgfx::colortype color, touchgfx::colortype bgColor, uint16_t byteGap);
+    void setParams(uint16_t bitWidth, int16_t highY, int16_t lowY, touchgfx::colortype color, touchgfx::colortype bgColor, uint16_t byteGap,
+                   uint8_t databits = 8, uint8_t parity = 0, uint8_t stopbits = 1);
 
     virtual void draw(const touchgfx::Rect &invalidatedArea) const;
     virtual touchgfx::Rect getSolidRect() const;
@@ -33,6 +34,9 @@ private:
     touchgfx::colortype color_;
     touchgfx::colortype bgColor_;   /* 背景色（每帧清屏，避免旧波形叠加）*/
     uint16_t byteGap_;              /* 字节间间隙（像素），分隔相邻字节让用户看清边界 */
+    uint8_t databits_;              /* 5-9（setParams clamp，超范围用 8）*/
+    uint8_t parity_;                /* 0=None, 1=Even, 2=Odd */
+    uint8_t stopbits_;              /* 1, 2, 3(=1.5，draw 画 2 bit 近似) */
 };
 
 #endif /* WAVEFORM_WIDGET_HPP */

@@ -4,6 +4,7 @@
 #include <texts/TextKeysAndLanguages.hpp>
 #include <images/BitmapDatabase.hpp>   /* 按钮 bitmap ID（modal 按钮）*/
 #include <main.h>   /* g_playback / g_record / g_file 全局 */
+#include <shared_config.h>   /* SHM_CONFIG 协议配置（波形动态参数）*/
 #include <shared_buf.h>
 #include "stm32h7xx.h"   /* SCB_InvalidateDCache_by_Addr（MPU non-cacheable 未生效，手动 invalidate）*/
 
@@ -21,7 +22,8 @@ Data_screenView::Data_screenView()
       prevCb(this, &Data_screenView::onPrevClick),
       nextCb(this, &Data_screenView::onNextClick),
       stopCb(this, &Data_screenView::onStopClick),
-      progressClickCb(this, &Data_screenView::onProgressClick)
+      progressClickCb(this, &Data_screenView::onProgressClick),
+      settingsCb(this, &Data_screenView::onSettingsClick)
 {
     shmCountBuf[0] = 0;
     modalBuf[0] = 0;
@@ -45,7 +47,9 @@ void Data_screenView::setupScreen()
 
     /* 时序波形：宽 450（裁剪长度）+ 高 100（恢复），右侧 X500+ 留给按钮 */
     waveWidget.setPosition(50, 185, 450, 100);
-    waveWidget.setParams(6, 20, 70, touchgfx::Color::getColorFromRGB(0, 255, 0), touchgfx::Color::getColorFromRGB(0, 0, 0), 10);  /* bit 6px，highY 20 lowY 70（widget 100 内）*/
+    /* 波形按 SHM_CONFIG UART 配置动态画（databits/parity/stopbits 算 bit 数，clamp 兜底首次乱值）*/
+    waveWidget.setParams(6, 20, 70, touchgfx::Color::getColorFromRGB(0, 255, 0), touchgfx::Color::getColorFromRGB(0, 0, 0), 10,
+                         SHM_CONFIG->uart.databits, SHM_CONFIG->uart.parity, SHM_CONFIG->uart.stopbits);
     add(waveWidget);
 
     /* "协议选择"按钮 toggle Container 显示/隐藏（Callback 成员在构造函数初始化）*/
@@ -57,6 +61,8 @@ void Data_screenView::setupScreen()
     CAN.setAction(canClickCb);
     /* 覆盖基类 back_data 跳转：记录中先弹 modal 确认 */
     back_data.setAction(backCb);
+    /* choose_contain 里的 Settings 按钮 → 跳设置屏 */
+    Settings.setAction(settingsCb);
     /* Container 初始隐藏 */
     choose_contain.setVisible(false);
     choose_contain.invalidate();
@@ -447,6 +453,12 @@ void Data_screenView::onStopClick(const touchgfx::AbstractButton&)
 {
     g_playback_stop = 1;
     application().gotostart_screenScreenNoTransition();
+}
+
+/* Settings 按钮 → 跳设置屏（配协议参数，写 SHM_CONFIG 给 CM4 改外设）*/
+void Data_screenView::onSettingsClick(const touchgfx::AbstractButton&)
+{
+    application().gotoSettings_ScreenScreenNoTransition();
 }
 
 /* 进度条点击/拖动：点击 x 坐标 → pos = x/760 * file_size + reload 该位置 */
