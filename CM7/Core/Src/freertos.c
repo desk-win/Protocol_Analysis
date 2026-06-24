@@ -74,7 +74,7 @@ const osThreadAttr_t defaultTask_attributes = {
 osThreadId_t StartTouchGFXTaHandle;
 const osThreadAttr_t StartTouchGFXTa_attributes = {
   .name = "StartTouchGFXTa",
-  .stack_size = 128 * 4,
+  .stack_size = 2048 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 

@@ -20,6 +20,7 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
+#include "bdma.h"
 #include "dma.h"
 #include "fdcan.h"
 #include "i2c.h"
@@ -29,6 +30,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "my_uart_check.h"
+#include "my_can_check.h"
 #include "shared_buf.h"
 #include "shared_config.h"   /* HSEM_ID_CONFIG + SHM_CONFIG 协议配置（CM7 写 → CM4 读改外设）*/
 /* USER CODE END Includes */
@@ -71,6 +73,7 @@ static void MPU_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 static void apply_uart_config_from_shm(void);   /* HSEM 通知后：读 SHM_CONFIG 映射 HAL 枚举 → UART_Param_Change */
+static void apply_can_config_from_shm(void);    /* 读 SHM_CONFIG->can → 算 BRP/BS1/BS2 → CAN_Param_Change */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -124,17 +127,24 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_DMA_Init();
+  MX_BDMA_Init();
   MX_USART6_UART_Init();
   MX_FDCAN1_Init();
   MX_I2C4_Init();
-  MX_SPI6_Init();
   MX_USART1_UART_Init();
+  MX_SPI6_Init();
   /* USER CODE BEGIN 2 */
   uart1_printf("\r\n[CM4] enter USER CODE 2 (boot sync 已过)\r\n");
   My_UART_Init();   /* 启动 USART6 DMA + IDLE 空闲中断接收 */
 
-  /* 激活 HSEM ID=1 通知：CM7 写完 SHM_CONFIG 后 Release → 中断置 g_config_pending → 本循环重配 UART。
-   * 放 My_UART_Init 之后：确保 UART6 初始化完成才接收重配请求。*/
+  /* CAN 初始化：过滤器全通（标准帧→FIFO0）+ 启动 + 激活接收/错误中断。
+   * HAL_FDCAN_RxFifo0Callback（在 my_can_check.c）自动收帧入 my_can_rangebuffer。*/
+  CAN_Filter_Config(0, 0, CAN_ID_STANDARD, 0);
+  HAL_FDCAN_Start(&hfdcan1);
+  CAN_Handler_Start();
+
+  /* 激活 HSEM ID=1 通知：CM7 写完 SHM_CONFIG 后 Release → 中断置 g_config_pending → 本循环重配外设。
+   * 放外设初始化之后：确保 UART6/FDCAN1 初始化完成才接收重配请求。*/
   HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_CONFIG));
 
   /* CM4 初始化 ring buffer：CM4→CM7 方向通(CM4无cache,写直达物理)，
@@ -150,22 +160,32 @@ int main(void)
   uint32_t bm_tick = 0;
   for(;;)
   {
-    /* HSEM 通知：CM7 改了协议配置 → 读 SHM_CONFIG 重配 USART6（仅 active_proto==1=UART）*/
+    /* HSEM 通知：CM7 改了协议配置 → 读 SHM_CONFIG 重配对应外设 */
     if (g_config_pending) {
       g_config_pending = 0;
       if (SHM_CONFIG->active_proto == 1) apply_uart_config_from_shm();
+      else if (SHM_CONFIG->active_proto == 4) apply_can_config_from_shm();
     }
-    /* 每秒发 5 个递增字节（0,1,2,3,4 / 5,6,7,8,9 ...），每个字节 bit 图案不同，
-     * 波形持续滚动变化（Hello 重复会波形不变）。PG14 TX → PG9 RX 自环回。*/
-    if (bm_tick % 100 == 0)
-    {
-      for (int i = 0; i < 5; i++) tx_buf[i] = (uint8_t)(tx_base + i);
-      HAL_UART_Transmit(&huart6, tx_buf, 5, 100);
-      tx_base += 5;
+    /* CAN 模式：读 CAN ring（帧 data 字节）→ shm。
+     * CAN_RangeBuffer_Read 返回 0=空/1=有数据（非帧数），故每次读 1 帧循环到空。*/
+    if (SHM_CONFIG->active_proto == 4) {
+      Can_Message_Struct msg;
+      while (CAN_RangeBuffer_Read(&msg, 1)) {
+        uint8_t dlc_len = Switch_DLC_TO_Len(msg.DLC);
+        for (uint8_t b = 0; b < dlc_len && b < 8; b++) shm_push(msg.my_can_data[b]);
+      }
     }
-    /* 读 UART 环形缓冲，抓到的字节写入共享内存给 CM7 */
-    uint32_t n = My_UART_Read_RingBuffer(rx_buf, sizeof(rx_buf));
-    for (uint32_t i = 0; i < n; i++) shm_push(rx_buf[i]);
+    /* 默认（未选 0 / UART 1 / SPI 2 / I2C 3 占位）：自环回 + 读 ring → shm 给 CM7 画波形 */
+    else {
+      if (bm_tick % 100 == 0)
+      {
+        for (int i = 0; i < 5; i++) tx_buf[i] = (uint8_t)(tx_base + i);
+        HAL_UART_Transmit(&huart6, tx_buf, 5, 100);
+        tx_base += 5;
+      }
+      uint32_t n = My_UART_Read_RingBuffer(rx_buf, sizeof(rx_buf));
+      for (uint32_t i = 0; i < n; i++) shm_push(rx_buf[i]);
+    }
     bm_tick++;
     HAL_Delay(10);
   }
@@ -241,6 +261,33 @@ static void apply_uart_config_from_shm(void)
     uart1_printf("[CM4] UART reconfig FAIL\r\n");
   }
 }
+
+/* 读 SHM_CONFIG->can → 算 BRP/BS1/BS2（采样点 87.5%）+ mode 映射 → CAN_Param_Change。
+ * FDCAN kernel clock = PLL（PLLQ），假设 240MHz（待实测确认，错则波特率不对）。
+ * 公式 Baud = FDCAN_CLK / (BRP * (1+BS1+BS2))，固定 BS1=13/BS2=2/SJW=1（16 tq，采样点 87.5%）。*/
+static void apply_can_config_from_shm(void)
+{
+  can_config_t *c = &SHM_CONFIG->can;
+
+  /* mode：0=Normal, 1=Loopback, 2=Silent, 3=LB+Silent */
+  uint32_t mode = FDCAN_MODE_NORMAL;
+  if (c->mode == 1) mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
+  else if (c->mode == 2) mode = FDCAN_MODE_BUS_MONITORING;
+  else if (c->mode == 3) mode = FDCAN_MODE_INTERNAL_LOOPBACK;
+
+  /* BRP = FDCAN_CLK / (Baud * 16)，固定 BS1=13/BS2=2/SJW=1（采样点 87.5%）*/
+  #define FDCAN_KERNEL_CLK  240000000U
+  uint32_t brp = FDCAN_KERNEL_CLK / (c->baudrate * 16);
+  if (brp < 1) brp = 1;
+  if (brp > 512) brp = 512;
+
+  if (CAN_Param_Change(c->baudrate, brp, 13, 2, 1, mode, ENABLE) == HAL_OK) {
+    uart1_printf("[CM4] CAN reconfig OK: %lu baud, BRP=%lu mode=%u\r\n",
+                 (unsigned long)c->baudrate, (unsigned long)brp, (unsigned)c->mode);
+  } else {
+    uart1_printf("[CM4] CAN reconfig FAIL\r\n");
+  }
+}
 /* USER CODE END 4 */
 
  /* MPU Configuration */
@@ -267,19 +314,6 @@ void MPU_Config(void)
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
-  /* SRAM4 (D3 domain 0x38000000) 共享内存：shareable + non-cacheable（双核通信） */
-  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
-  MPU_InitStruct.BaseAddress = 0x38000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_64KB;
-  HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
-  /* AXI SRAM 共享内存段（0x24060000）：shareable + non-cacheable */
-  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
-  MPU_InitStruct.BaseAddress = 0x2407C000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_16KB;
-  HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 

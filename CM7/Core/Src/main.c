@@ -20,6 +20,7 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
+#include "bdma.h"
 #include "dma.h"
 #include "fatfs.h"
 #include "gpio.h"
@@ -197,9 +198,34 @@ Error_Handler();
   /* Initialize all configured peripherals */
   MX_DMA_Init();
   MX_GPIO_Init();
-  /* Call PreOsInit function */
-  MX_TouchGFX_PreOSInit();
+  MX_BDMA_Init();
   /* USER CODE BEGIN 2 */
+  /* 恢复 regen 删除的共享内存 MPU region（双核 HSEM config/ring buffer + SDMMC2 DMA buffer 必须 non-cacheable）。
+   * MPU_Config 生成区被 regen 覆盖只剩 Region 0/1，这里 USER CODE 区补回 Region 2/3/4。
+   * SRAM4(D3)删了会导致 SDMMC2 DMA buffer cache 不一致 → HAL_SD_Init 失败 → SD 检测不到。*/
+  {
+    MPU_Region_InitTypeDef MPU_Shared = {0};
+    MPU_Shared.Enable = MPU_REGION_ENABLE;
+    MPU_Shared.AccessPermission = MPU_REGION_FULL_ACCESS;
+    MPU_Shared.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+    MPU_Shared.TypeExtField = MPU_TEX_LEVEL1;     /* TEX=1: shareable non-cacheable */
+    MPU_Shared.IsShareable = MPU_ACCESS_SHAREABLE;
+    MPU_Shared.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+    MPU_Shared.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+    MPU_Shared.SubRegionDisable = 0x0;
+    MPU_Shared.Number = MPU_REGION_NUMBER2;        /* SRAM4 (D3 0x38000000): SDMMC2 DMA + 双核共享 */
+    MPU_Shared.BaseAddress = 0x38000000;
+    MPU_Shared.Size = MPU_REGION_SIZE_64KB;
+    HAL_MPU_ConfigRegion(&MPU_Shared);
+    MPU_Shared.Number = MPU_REGION_NUMBER3;        /* AXI SRAM (0x24060000): 双核共享段 */
+    MPU_Shared.BaseAddress = 0x24060000;
+    MPU_Shared.Size = MPU_REGION_SIZE_16KB;
+    HAL_MPU_ConfigRegion(&MPU_Shared);
+    MPU_Shared.Number = MPU_REGION_NUMBER4;        /* SRAM1 (D2 0x30000000): HSEM config + ring buffer */
+    MPU_Shared.BaseAddress = 0x30000000;
+    MPU_Shared.Size = MPU_REGION_SIZE_128KB;
+    HAL_MPU_ConfigRegion(&MPU_Shared);
+  }
   MX_FMC_Init();           /* SDRAM init MUST precede LTDC (framebuffer @ 0xD0000000) */
   MX_LTDC_Init();          /* LTDC reads from SDRAM — requires FMC already running */
   MX_I2C2_Init();
@@ -335,34 +361,6 @@ void MPU_Config(void)
   MPU_InitStruct.BaseAddress = 0xD0000000;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
-  /* SRAM4 (D3 domain 0x38000000) 共享内存：shareable + non-cacheable（双核通信） */
-  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
-  MPU_InitStruct.BaseAddress = 0x38000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_64KB;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-  HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
-  /* AXI SRAM 共享内存段（0x24060000，避开前144KB heap/stack）：shareable + non-cacheable */
-  MPU_InitStruct.Number = MPU_REGION_NUMBER3;
-  MPU_InitStruct.BaseAddress = 0x2407C000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_16KB;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-  HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
-  /* SRAM1 (D2域 0x30000000) 共享内存：shareable + non-cacheable */
-  MPU_InitStruct.Number = MPU_REGION_NUMBER4;
-  MPU_InitStruct.BaseAddress = 0x30000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_128KB;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-  HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 
