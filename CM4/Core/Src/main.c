@@ -208,18 +208,24 @@ static void apply_uart_config_from_shm(void)
 {
   uart_config_t *u = &SHM_CONFIG->uart;
 
-  /* databits：STM32 只 7/8/9，5/6 退化 8B（硬件不支持）*/
-  uint32_t wordlen = UART_WORDLENGTH_8B;
-  if (u->databits == 7) wordlen = UART_WORDLENGTH_7B;
-  else if (u->databits == 9) wordlen = UART_WORDLENGTH_9B;
-
-  /* stopbits：1/2，1.5 退化 2（常规 USART 不支持 1.5）*/
-  uint32_t stopb = (u->stopbits >= 2) ? UART_STOPBITS_2 : UART_STOPBITS_1;
-
-  /* parity：0=None, 1=Even, 2=Odd */
+  /* parity：0=None, 1=Even, 2=Odd（先算，wordlen 依赖它）*/
   uint32_t par = UART_PARITY_NONE;
   if (u->parity == 1) par = UART_PARITY_EVEN;
   else if (u->parity == 2) par = UART_PARITY_ODD;
+
+  /* databits → WordLength。STM32 WordLength 含 parity bit（PCE=1 时 MSB 是校验位，
+   * 数据位 = WordLength-1）。带 parity 时 WordLength 升一档：8 data + Even → 9B。
+   * 5/6 退化 8B（硬件不支持）；9 + parity 需 10B 不支持，保持 9B（实际 8 data + parity）。*/
+  uint32_t wordlen = UART_WORDLENGTH_8B;
+  if (u->databits == 7) wordlen = UART_WORDLENGTH_7B;
+  else if (u->databits == 9) wordlen = UART_WORDLENGTH_9B;
+  if (par != UART_PARITY_NONE) {
+    if (wordlen == UART_WORDLENGTH_7B) wordlen = UART_WORDLENGTH_8B;
+    else if (wordlen == UART_WORDLENGTH_8B) wordlen = UART_WORDLENGTH_9B;
+  }
+
+  /* stopbits：1/2，1.5 退化 2（常规 USART 不支持 1.5）*/
+  uint32_t stopb = (u->stopbits >= 2) ? UART_STOPBITS_2 : UART_STOPBITS_1;
 
   /* flowcontrol：0=None, 1=RTS, 2=CTS, 3=RTS_CTS */
   uint32_t flow = UART_HWCONTROL_NONE;
