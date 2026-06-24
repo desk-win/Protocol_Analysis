@@ -25,9 +25,11 @@ typedef struct {
 
 /* ====== SPI 配置 ====== */
 typedef struct {
+    uint8_t  role;         /* 0=Slave(默认), 1=Master */
+    uint8_t  cs_polarity;  /* 0=Active-Low(默认), 1=Active-High（v1 不进 UI，硬编码 0）*/
     uint8_t  mode;         /* 0-3: CPOL/CPHA 组合（0=00, 1=01, 2=10, 3=11）*/
-    uint8_t  datasize;     /* 4-16 bit */
-    uint32_t baudrate;     /* 实际波特率（CM4 算 prescaler）*/
+    uint8_t  datasize;     /* 4-8 bit（v1 限制：BDMA byte 对齐）*/
+    uint32_t baudrate;     /* slave 无效；master 见 spi_prescaler_from_baud */
     uint8_t  firstbit;     /* 0=MSB first, 1=LSB first */
 } spi_config_t;
 
@@ -66,6 +68,8 @@ typedef struct {
 #define SPI_DEFAULT_DATASIZE    8U
 #define SPI_DEFAULT_BAUDRATE    1000000U
 #define SPI_DEFAULT_FIRSTBIT    0U
+#define SPI_DEFAULT_ROLE        0U
+#define SPI_DEFAULT_CS_POL      0U
 
 #define I2C_DEFAULT_CLOCK       100000U
 #define I2C_DEFAULT_ADDRMODE    0U
