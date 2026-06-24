@@ -40,6 +40,7 @@ MEMORY
 {
 FLASH (rx)      : ORIGIN = 0x08100000, LENGTH = 1024K
 RAM (xrw)      : ORIGIN = 0x10000000, LENGTH = 288K
+RAM_D3 (xrw)   : ORIGIN = 0x38000000, LENGTH = 1K
 OPEN_AMP_SHMEM (xrw)  : ORIGIN = 0x38000400, LENGTH = 63K
 }
 
@@ -62,6 +63,14 @@ SECTIONS
     *(.resource_table)
     . = ALIGN(4);
   } >OPEN_AMP_SHMEM
+
+  /* SPI6 BDMA buffer：BDMA 只能访问 D3 域 SRAM4，rx_spi_buffer/tx_spi_buffer 用 __attribute__((section(".RAM_D3"))) */
+  .RAM_D3 (NOLOAD) :
+  {
+    . = ALIGN(4);
+    *(.RAM_D3*)
+    . = ALIGN(4);
+  } >RAM_D3
 
   /* The startup code goes first into FLASH */
   .isr_vector :
