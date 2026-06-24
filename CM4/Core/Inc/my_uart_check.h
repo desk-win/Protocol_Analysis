@@ -62,6 +62,11 @@ typedef struct {
     uint32_t error_count;       // 帧完整性错误计数
 } UART_Pact_t;
 
+// 全局变量声明（定义在 my_uart_check.c，供外部读取协议分析/错误统计结果）
+extern uint8_t if_uart_rxok;            // 接收完成标志（0=未完成，2=完成）
+extern UART_ErrorStats_t uart_errors;   // 错误统计（帧/校验/溢出/噪声计数 + 滑动窗口错误率）
+extern UART_Pact_t uart_analysis;       // 协议分析（帧间隔 max/min/avg + 成功帧数 + 错误计数）
+
 void My_UART_Init(void);
 HAL_StatusTypeDef UART_Param_Change(uint32_t baud, uint32_t data_len, uint32_t stop_bits, uint32_t parity, uint32_t flow_ctrl);
 void My_UART_Send_Single(uint8_t *tx_data, uint32_t len);

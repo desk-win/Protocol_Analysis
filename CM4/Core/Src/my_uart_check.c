@@ -15,6 +15,7 @@ RingBuffer_t rx_ring_buf;
 uint8_t rx_uart_buffer[UART_RXDMA_LEN];            //用来接收DMA搬运数据的缓冲区
 UART_ErrorStats_t uart_errors;
 UART_Pact_t uart_analysis;
+uint8_t if_uart_rxok = 0;        //接收完成标志（0=未完成，2=完成），供外部轮询读取
 /***********************************工具函数***********************************/
 /**
 *   @brief 这个函数用来管理缓冲区，如果缓冲区没有满就将数据放进去并将指针指向下一个位置
@@ -226,6 +227,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
         }
         //触发接收完成通知标志
         now_uart_state.rx_notice = 1;
+        if_uart_rxok = 2;   //接收完成标志（外部读 uart_analysis 后应清 0）
         //记录当前时间
         uint32_t current_tick = HAL_GetTick();
         if (uart_analysis.success_count == 0) {
