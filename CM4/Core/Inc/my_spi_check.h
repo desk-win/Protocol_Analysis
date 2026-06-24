@@ -60,6 +60,7 @@ extern uint8_t rx_spi_buffer[DMA_BUFFER_LEN];
 
 extern My_SPI_Deploy spi_deploy;
 extern uint8_t if_busy;   /* main 循环 master 分支查 busy（IT 非阻塞）*/
+extern DMA_HandleTypeDef hdma_spi6_rx;   /* SPI6 RX BDMA handle (defined in spi.c, CubeMX 不在 spi.h 里 extern)*/
 
 void CS_Pin_State(uint8_t level);
 void CS_Switch_To_Exit(void);
