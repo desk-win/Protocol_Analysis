@@ -105,7 +105,19 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#include "shared_config.h"   /* HSEM_ID_CONFIG */
 
+/* 协议配置就绪通知:CM7 UI 写完 SHM_CONFIG 后调用,Release HSEM 通知 CM4 重配外设。
+ * TouchGFX Settings_ScreenView 通过 extern "C" 调用(C++ 不直接碰 HAL)。*/
+void shm_config_notify(void)
+{
+    __DSB();   /* 确保共享内存写入对 CM4 可见(non-cacheable 下双保险) */
+    /* Take + Release 产生 free 事件 → 触发 CM4 HSEM 中断读 config。
+     * 直接 Release 空闲态 semaphore 不触发中断，必须先 Take 锁定再释放。
+     * CM4 不持有该 semaphore（FreeCallback 只置 flag 不 Take），Take 总成功。*/
+    HAL_HSEM_Take(HSEM_ID_CONFIG, 0);
+    HAL_HSEM_Release(HSEM_ID_CONFIG, 0);
+}
 /* USER CODE END 0 */
 
 /**

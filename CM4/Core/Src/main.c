@@ -30,6 +30,7 @@
 /* USER CODE BEGIN Includes */
 #include "my_uart_check.h"
 #include "shared_buf.h"
+#include "shared_config.h"   /* HSEM_ID_CONFIG + SHM_CONFIG 协议配置（CM7 写 → CM4 读改外设）*/
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,14 +63,14 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+volatile uint8_t g_config_pending = 0;   /* HSEM ID=1 中断置位 → main 循环读 SHM_CONFIG 重配 UART */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 static void MPU_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void apply_uart_config_from_shm(void);   /* HSEM 通知后：读 SHM_CONFIG 映射 HAL 枚举 → UART_Param_Change */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -132,6 +133,10 @@ int main(void)
   uart1_printf("\r\n[CM4] enter USER CODE 2 (boot sync 已过)\r\n");
   My_UART_Init();   /* 启动 USART6 DMA + IDLE 空闲中断接收 */
 
+  /* 激活 HSEM ID=1 通知：CM7 写完 SHM_CONFIG 后 Release → 中断置 g_config_pending → 本循环重配 UART。
+   * 放 My_UART_Init 之后：确保 UART6 初始化完成才接收重配请求。*/
+  HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_CONFIG));
+
   /* CM4 初始化 ring buffer：CM4→CM7 方向通(CM4无cache,写直达物理)，
    * CM7→CM4 方向不通(CM7写停在D-Cache,clean也flush不到CM4)，故 shm_init 由 CM4 调用。*/
   shm_init();
@@ -145,6 +150,11 @@ int main(void)
   uint32_t bm_tick = 0;
   for(;;)
   {
+    /* HSEM 通知：CM7 改了协议配置 → 读 SHM_CONFIG 重配 USART6（仅 active_proto==1=UART）*/
+    if (g_config_pending) {
+      g_config_pending = 0;
+      if (SHM_CONFIG->active_proto == 1) apply_uart_config_from_shm();
+    }
     /* 每秒发 5 个递增字节（0,1,2,3,4 / 5,6,7,8,9 ...），每个字节 bit 图案不同，
      * 波形持续滚动变化（Hello 重复会波形不变）。PG14 TX → PG9 RX 自环回。*/
     if (bm_tick % 100 == 0)
@@ -182,7 +192,49 @@ int main(void)
 }
 
 /* USER CODE BEGIN 4 */
+/* HSEM Free Callback：CM7 Release HSEM_ID_CONFIG 时触发（通知 config 就绪）。
+ * 不在中断里直接重配 UART（避免与 main 循环的 UART 发送/DMA 竞态），只置 flag。*/
+void HAL_HSEM_FreeCallback(uint32_t SemMask)
+{
+  if (SemMask & __HAL_HSEM_SEMID_TO_MASK(HSEM_ID_CONFIG))
+  {
+    g_config_pending = 1;
+  }
+}
 
+/* 读 SHM_CONFIG->uart 映射 HAL 枚举 → UART_Param_Change 重配 USART6。
+ * STM32 USART 硬件限制：databits 只支持 7/8/9（5/6→8B），stopbits 只 1/2（1.5→2）。*/
+static void apply_uart_config_from_shm(void)
+{
+  uart_config_t *u = &SHM_CONFIG->uart;
+
+  /* databits：STM32 只 7/8/9，5/6 退化 8B（硬件不支持）*/
+  uint32_t wordlen = UART_WORDLENGTH_8B;
+  if (u->databits == 7) wordlen = UART_WORDLENGTH_7B;
+  else if (u->databits == 9) wordlen = UART_WORDLENGTH_9B;
+
+  /* stopbits：1/2，1.5 退化 2（常规 USART 不支持 1.5）*/
+  uint32_t stopb = (u->stopbits >= 2) ? UART_STOPBITS_2 : UART_STOPBITS_1;
+
+  /* parity：0=None, 1=Even, 2=Odd */
+  uint32_t par = UART_PARITY_NONE;
+  if (u->parity == 1) par = UART_PARITY_EVEN;
+  else if (u->parity == 2) par = UART_PARITY_ODD;
+
+  /* flowcontrol：0=None, 1=RTS, 2=CTS, 3=RTS_CTS */
+  uint32_t flow = UART_HWCONTROL_NONE;
+  if (u->flowcontrol == 1) flow = UART_HWCONTROL_RTS;
+  else if (u->flowcontrol == 2) flow = UART_HWCONTROL_CTS;
+  else if (u->flowcontrol == 3) flow = UART_HWCONTROL_RTS_CTS;
+
+  if (UART_Param_Change(u->baudrate, wordlen, stopb, par, flow) == HAL_OK) {
+    uart1_printf("[CM4] UART reconfig OK: %lu baud, dbit=%u stop=%u par=%u\r\n",
+                 (unsigned long)u->baudrate, (unsigned)u->databits,
+                 (unsigned)u->stopbits, (unsigned)u->parity);
+  } else {
+    uart1_printf("[CM4] UART reconfig FAIL\r\n");
+  }
+}
 /* USER CODE END 4 */
 
  /* MPU Configuration */

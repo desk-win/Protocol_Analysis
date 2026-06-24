@@ -9,6 +9,11 @@
  * SRAM1 MPU Region 4 non-cacheable，CM7 写直达物理，CM4（无 cache）读。*/
 #define SHM_CONFIG_ADDR  0x30001000U
 
+/* HSEM 通知 ID（CM7 写完 config 后 Release → CM4 HSEM 中断读 config 重配外设）
+ * HSEM_ID_0（=0）被双核 boot 同步占用（main.c CM7 Release 唤醒 CM4），用 ID=1。
+ * FreeRTOSConfig.h 没占用任何 HSEM ID，ID=1 空闲。 */
+#define HSEM_ID_CONFIG  1U
+
 /* ====== UART 配置 ====== */
 typedef struct {
     uint32_t baudrate;     /* 实际波特率：9600/19200/38400/57600/115200/230400/460800/921600 */

@@ -6,6 +6,8 @@
 #include <touchgfx/widgets/ButtonWithLabel.hpp>
 #include <touchgfx/widgets/AbstractButton.hpp>
 #include <touchgfx/widgets/TextAreaWithWildcard.hpp>
+#include <touchgfx/widgets/Box.hpp>
+#include <touchgfx/containers/Container.hpp>
 
 class Settings_ScreenView : public Settings_ScreenViewBase
 {
@@ -14,6 +16,7 @@ public:
     virtual ~Settings_ScreenView() {}
     virtual void setupScreen();
     virtual void tearDownScreen();
+    virtual void handleTickEvent();   /* modal 结果倒计时（Applied!/Discarded! 显示后回主屏）*/
 protected:
     /* 行 0：协议选择（UART/SPI/I2C/CAN）；行 1-5：当前协议参数（按 protoIdx 动态显示）*/
     touchgfx::TextAreaWithOneWildcard protoRow, row1, row2, row3, row4, row5;
@@ -27,7 +30,9 @@ protected:
     void onDownClick(const touchgfx::AbstractButton&);
     void onPlusClick(const touchgfx::AbstractButton&);
     void onMinusClick(const touchgfx::AbstractButton&);
-    void refreshAll();
+    void refreshAll();   /* 只更新 UI 显示，不写 SHM_CONFIG */
+    void applyConfig();  /* 用户确认后：写 SHM_CONFIG 全字段 + shm_config_notify() 通知 CM4 */
+    bool hasChanges();   /* 对比 snap，本地 idx 有没有被用户改过 */
     uint8_t selRow;       /* 0=协议, 1-5=参数 */
     uint8_t protoIdx;     /* 0=UART, 1=SPI, 2=I2C, 3=CAN */
     /* UART 参数 idx */
@@ -38,6 +43,28 @@ protected:
     uint8_t iClock, iAddr;
     /* CAN 参数 idx */
     uint8_t cBaud, cMode;
+
+    /* —— back 拦截：用户改过参数 → 弹 modal 确认 Apply/Discard/Cancel —— */
+    touchgfx::Callback<Settings_ScreenView, const touchgfx::AbstractButton&> backCb, applyCb, discardCb, cancelCb;
+    void onBackClick(const touchgfx::AbstractButton&);
+    void onApplyClick(const touchgfx::AbstractButton&);
+    void onDiscardClick(const touchgfx::AbstractButton&);
+    void onCancelClick(const touchgfx::AbstractButton&);
+    void showConfirmModal();
+    void hideConfirmModal();
+    /* snap：进屏幕时所有 idx 的副本，hasChanges 对比用（refreshAll 不写 SHM_CONFIG，cancel 自然回退）*/
+    struct { uint8_t protoIdx, uBaud, uData, uStop, uPar, uFlow, sMode, sData, sBaud, sFirst, iClock, iAddr, cBaud, cMode; } snap;
+    /* 确认 modal（等效 data_screen：遮罩 + 面板 + 文本 + 3 按钮 + TextArea 标签）*/
+    touchgfx::Container modalOverlay;
+    touchgfx::Box modalShade;
+    touchgfx::Box modalPanel;
+    touchgfx::TextAreaWithOneWildcard modalText;
+    touchgfx::Unicode::UnicodeChar modalBuf[32];
+    touchgfx::ButtonWithLabel btnApply, btnDiscard, btnCancel;
+    touchgfx::TextAreaWithOneWildcard applyLbl, discardLbl, cancelLbl;
+    touchgfx::Unicode::UnicodeChar applyBuf[12], discardBuf[12], cancelBuf[12];
+    enum { MODAL_HIDDEN, MODAL_CONFIRM, MODAL_RESULT } modalState;
+    uint16_t resultTicks;
 };
 
 #endif // SETTINGS_SCREENVIEW_HPP

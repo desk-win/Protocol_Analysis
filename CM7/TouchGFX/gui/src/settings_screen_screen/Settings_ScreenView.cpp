@@ -5,12 +5,15 @@
 #include <stdio.h>
 #include <shared_config.h>
 
-/* ===== 档位表（UI idx → 实际值/显示，refreshAll 映射写 SHM_CONFIG）===== */
+/* CM7 main.c 提供的 HSEM 通知 shim（C++ 不直接碰 HAL，通过 extern "C" 调）*/
+extern "C" void shm_config_notify(void);
+
+/* ===== 档位表（UI idx → 实际值/显示，applyConfig 映射写 SHM_CONFIG）===== */
 /* UART */
 static const uint32_t u_baud[8]  = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
-static const uint8_t  u_data[5]  = {5, 6, 7, 8, 9};
-static const uint8_t  u_stop[3]  = {1, 2, 3};                 /* 3 表示 1.5 */
-static const char*    u_stopD[3] = {"1", "2", "1.5"};
+static const uint8_t  u_data[3]  = {7, 8, 9};                 /* STM32 USART 只支持 7/8/9 bit */
+static const uint8_t  u_stop[2]  = {1, 2};                    /* 常规 USART 只 1/2（1.5 仅智能卡模式）*/
+static const char*    u_stopD[2] = {"1", "2"};
 static const char*    u_par[3]   = {"None", "Even", "Odd"};
 static const char*    u_flow[4]  = {"None", "RTS", "CTS", "RTS/CTS"};
 /* SPI */
@@ -31,11 +34,16 @@ Settings_ScreenView::Settings_ScreenView()
       downCb(this, &Settings_ScreenView::onDownClick),
       plusCb(this, &Settings_ScreenView::onPlusClick),
       minusCb(this, &Settings_ScreenView::onMinusClick),
+      backCb(this, &Settings_ScreenView::onBackClick),
+      applyCb(this, &Settings_ScreenView::onApplyClick),
+      discardCb(this, &Settings_ScreenView::onDiscardClick),
+      cancelCb(this, &Settings_ScreenView::onCancelClick),
       selRow(0), protoIdx(0),
-      uBaud(4), uData(3), uStop(0), uPar(0), uFlow(0),
+      uBaud(4), uData(1), uStop(0), uPar(0), uFlow(0),
       sMode(0), sData(4), sBaud(3), sFirst(0),
       iClock(0), iAddr(0),
-      cBaud(3), cMode(0)
+      cBaud(3), cMode(0),
+      modalState(MODAL_HIDDEN), resultTicks(0)
 {
 }
 
@@ -53,11 +61,18 @@ void Settings_ScreenView::setupScreen()
     uint32_t b = SHM_CONFIG->uart.baudrate;
     uBaud = 4; for (uint8_t i = 0; i < 8; i++) if (u_baud[i] == b) { uBaud = i; break; }
     uint8_t d = SHM_CONFIG->uart.databits;
-    uData = 3; for (uint8_t i = 0; i < 5; i++) if (u_data[i] == d) { uData = i; break; }
+    uData = 1; for (uint8_t i = 0; i < 3; i++) if (u_data[i] == d) { uData = i; break; }
     uint8_t s = SHM_CONFIG->uart.stopbits;
-    uStop = 0; for (uint8_t i = 0; i < 3; i++) if (u_stop[i] == s) { uStop = i; break; }
+    uStop = 0; for (uint8_t i = 0; i < 2; i++) if (u_stop[i] == s) { uStop = i; break; }
     uPar  = (SHM_CONFIG->uart.parity < 3)      ? SHM_CONFIG->uart.parity      : 0;
     uFlow = (SHM_CONFIG->uart.flowcontrol < 4) ? SHM_CONFIG->uart.flowcontrol : 0;
+
+    /* snap：保存进屏幕时的所有 idx，onBackClick 对比用（refreshAll 不写 SHM_CONFIG，cancel 自然回退）*/
+    snap.protoIdx = protoIdx;
+    snap.uBaud = uBaud; snap.uData = uData; snap.uStop = uStop; snap.uPar = uPar; snap.uFlow = uFlow;
+    snap.sMode = sMode; snap.sData = sData; snap.sBaud = sBaud; snap.sFirst = sFirst;
+    snap.iClock = iClock; snap.iAddr = iAddr;
+    snap.cBaud = cBaud; snap.cMode = cMode;
 
     const touchgfx::colortype white = touchgfx::Color::getColorFromRGB(255, 255, 255);
     /* 行 0 协议 + 行 1-5 参数 */
@@ -84,6 +99,45 @@ void Settings_ScreenView::setupScreen()
     plusLbl.setPosition(445, 352, 60, 32);  plusLbl.setTypedText(TypedText(T___SINGLEUSE_T387));  plusLbl.setWildcard(plusBuf); plusLbl.setColor(white); add(plusLbl);
     minusLbl.setPosition(565, 352, 60, 32); minusLbl.setTypedText(TypedText(T___SINGLEUSE_T387)); minusLbl.setWildcard(minusBuf); minusLbl.setColor(white); add(minusLbl);
 
+    /* 覆盖基类 back_setting 跳转：改过参数先弹 modal 确认 */
+    back_setting.setAction(backCb);
+
+    /* —— 确认 modal（改过参数点 back → Apply/Discard/Cancel）——
+     * 等效 data_screen ModalWindow：遮罩 touchable 拦截底层点击，最后 add 保证最上层。*/
+    modalShade.setPosition(0, 0, 800, 480);
+    modalShade.setColor(touchgfx::Color::getColorFromRGB(0, 0, 0));
+    modalShade.setAlpha(120);
+    modalShade.setTouchable(true);
+    modalOverlay.add(modalShade);
+
+    modalPanel.setPosition(200, 160, 400, 160);
+    modalPanel.setColor(touchgfx::Color::getColorFromRGB(60, 60, 60));
+    modalOverlay.add(modalPanel);
+
+    modalText.setPosition(220, 170, 360, 40);
+    modalText.setTypedText(TypedText(T___SINGLEUSE_T387));
+    modalText.setWildcard(modalBuf);
+    modalText.setColor(white);
+    touchgfx::Unicode::strncpy(modalBuf, "Apply changes?", 32);
+    modalOverlay.add(modalText);
+
+    btnApply.setXY(215, 235);    btnApply.setBitmaps(bN, bP);    btnApply.setAction(applyCb);    modalOverlay.add(btnApply);
+    btnDiscard.setXY(340, 235);  btnDiscard.setBitmaps(bN, bP);  btnDiscard.setAction(discardCb); modalOverlay.add(btnDiscard);
+    btnCancel.setXY(465, 235);   btnCancel.setBitmaps(bN, bP);   btnCancel.setAction(cancelCb);  modalOverlay.add(btnCancel);
+
+    /* 按钮标签（叠加在按钮上，TextArea 默认 touchable=false 点击穿透）*/
+    touchgfx::Unicode::strncpy(applyBuf,   "Apply",   12);
+    touchgfx::Unicode::strncpy(discardBuf, "Discard", 12);
+    touchgfx::Unicode::strncpy(cancelBuf,  "Cancel",  12);
+    applyLbl.setPosition(220, 237, 90, 32);   applyLbl.setTypedText(TypedText(T___SINGLEUSE_T387));   applyLbl.setWildcard(applyBuf);   applyLbl.setColor(white); modalOverlay.add(applyLbl);
+    discardLbl.setPosition(343, 237, 90, 32); discardLbl.setTypedText(TypedText(T___SINGLEUSE_T387)); discardLbl.setWildcard(discardBuf); discardLbl.setColor(white); modalOverlay.add(discardLbl);
+    cancelLbl.setPosition(470, 237, 90, 32);  cancelLbl.setTypedText(TypedText(T___SINGLEUSE_T387));  cancelLbl.setWildcard(cancelBuf);  cancelLbl.setColor(white); modalOverlay.add(cancelLbl);
+
+    /* Container 必须设全屏尺寸：setVisible+invalidate 的重绘区域 = Container rect */
+    modalOverlay.setPosition(0, 0, 800, 480);
+    modalOverlay.setVisible(false);
+    add(modalOverlay);   /* 最后 add = 最上层 */
+
     refreshAll();
 }
 
@@ -92,7 +146,22 @@ void Settings_ScreenView::tearDownScreen()
     Settings_ScreenViewBase::tearDownScreen();
 }
 
-/* 更新行 0 协议 + 行 1-5（按 protoIdx 动态）+ 写 SHM_CONFIG 全协议字段 */
+/* modal 结果倒计时：Applied!/Discarded! 显示 ~1.5s 后 hide + 回主屏 */
+void Settings_ScreenView::handleTickEvent()
+{
+    Settings_ScreenViewBase::handleTickEvent();
+
+    if (modalState == MODAL_RESULT)
+    {
+        if (--resultTicks <= 0)
+        {
+            hideConfirmModal();
+            application().gotostart_screenScreenNoTransition();
+        }
+    }
+}
+
+/* 更新行 0 协议 + 行 1-5（按 protoIdx 动态）—— 只刷新显示，不写 SHM_CONFIG */
 void Settings_ScreenView::refreshAll()
 {
     char tmp[48];
@@ -121,7 +190,7 @@ void Settings_ScreenView::refreshAll()
             ROW(4, "%s First: %s",   s_first[sFirst]);
             ROWEMPTY(5);
             break;
-        case 2: /* I2C 2 参数 + row3-5 空（own_address 固定不调）*/
+        case 2: /* I2C 2 参数 + row3-5 空 */
             ROW(1, "%s Clock: %lu",  (unsigned long)i_clk[iClock]);
             ROW(2, "%s Addr: %s",    i_addrD[iAddr]);
             ROWEMPTY(3); ROWEMPTY(4); ROWEMPTY(5);
@@ -134,8 +203,11 @@ void Settings_ScreenView::refreshAll()
     }
     #undef ROW
     #undef ROWEMPTY
+}
 
-    /* 写 SHM_CONFIG（全协议字段，CM4 按 active_proto 用对应协议）*/
+/* 用户确认后：写 SHM_CONFIG 全协议字段 + Release HSEM 通知 CM4 重配外设 */
+void Settings_ScreenView::applyConfig()
+{
     SHM_CONFIG->active_proto        = protoIdx + 1;
     SHM_CONFIG->uart.baudrate       = u_baud[uBaud];
     SHM_CONFIG->uart.databits       = u_data[uData];
@@ -150,6 +222,24 @@ void Settings_ScreenView::refreshAll()
     SHM_CONFIG->i2c.addressing      = iAddr;
     SHM_CONFIG->can.baudrate        = c_baud[cBaud];
     SHM_CONFIG->can.mode            = cMode;
+    shm_config_notify();   /* __DSB + HAL_HSEM_Release(HSEM_ID_CONFIG) → CM4 中断读 */
+    /* snap 更新为当前（已应用），避免同一次会话内重复弹窗 */
+    snap.protoIdx = protoIdx;
+    snap.uBaud = uBaud; snap.uData = uData; snap.uStop = uStop; snap.uPar = uPar; snap.uFlow = uFlow;
+    snap.sMode = sMode; snap.sData = sData; snap.sBaud = sBaud; snap.sFirst = sFirst;
+    snap.iClock = iClock; snap.iAddr = iAddr;
+    snap.cBaud = cBaud; snap.cMode = cMode;
+}
+
+/* 对比 snap：用户是否改过任何 idx（改过点 back 才弹确认）*/
+bool Settings_ScreenView::hasChanges()
+{
+    return protoIdx != snap.protoIdx ||
+           uBaud != snap.uBaud || uData != snap.uData || uStop != snap.uStop ||
+           uPar != snap.uPar || uFlow != snap.uFlow ||
+           sMode != snap.sMode || sData != snap.sData || sBaud != snap.sBaud || sFirst != snap.sFirst ||
+           iClock != snap.iClock || iAddr != snap.iAddr ||
+           cBaud != snap.cBaud || cMode != snap.cMode;
 }
 
 void Settings_ScreenView::onUpClick(const touchgfx::AbstractButton&)
@@ -169,8 +259,8 @@ void Settings_ScreenView::onPlusClick(const touchgfx::AbstractButton&)
     if (selRow == 0) { protoIdx = (protoIdx + 1) % 4; refreshAll(); return; }
     switch (protoIdx * 16 + selRow) {
         case 0*16+1: uBaud  = (uBaud  + 1) % 8; break;
-        case 0*16+2: uData  = (uData  + 1) % 5; break;
-        case 0*16+3: uStop  = (uStop  + 1) % 3; break;
+        case 0*16+2: uData  = (uData  + 1) % 3; break;
+        case 0*16+3: uStop  = (uStop  + 1) % 2; break;
         case 0*16+4: uPar   = (uPar   + 1) % 3; break;
         case 0*16+5: uFlow  = (uFlow  + 1) % 4; break;
         case 1*16+1: sMode  = (sMode  + 1) % 4; break;
@@ -190,8 +280,8 @@ void Settings_ScreenView::onMinusClick(const touchgfx::AbstractButton&)
     if (selRow == 0) { protoIdx = (protoIdx == 0) ? 3 : (protoIdx - 1); refreshAll(); return; }
     switch (protoIdx * 16 + selRow) {
         case 0*16+1: uBaud  = (uBaud  == 0) ? 7 : (uBaud  - 1); break;
-        case 0*16+2: uData  = (uData  == 0) ? 4 : (uData  - 1); break;
-        case 0*16+3: uStop  = (uStop  == 0) ? 2 : (uStop  - 1); break;
+        case 0*16+2: uData  = (uData  == 0) ? 2 : (uData  - 1); break;
+        case 0*16+3: uStop  = (uStop  == 0) ? 1 : (uStop  - 1); break;
         case 0*16+4: uPar   = (uPar   == 0) ? 2 : (uPar   - 1); break;
         case 0*16+5: uFlow  = (uFlow  == 0) ? 3 : (uFlow  - 1); break;
         case 1*16+1: sMode  = (sMode  == 0) ? 3 : (sMode  - 1); break;
@@ -204,4 +294,79 @@ void Settings_ScreenView::onMinusClick(const touchgfx::AbstractButton&)
         case 3*16+2: cMode  = (cMode  == 0) ? 3 : (cMode  - 1); break;
     }
     refreshAll();
+}
+
+/* back：改过参数 → 弹确认；没改过直接回主屏 */
+void Settings_ScreenView::onBackClick(const touchgfx::AbstractButton&)
+{
+    if (hasChanges()) showConfirmModal();
+    else application().gotostart_screenScreenNoTransition();
+}
+
+/* Apply：写 SHM_CONFIG + 通知 CM4 → 显示 Applied! → 倒计时后回主屏 */
+void Settings_ScreenView::onApplyClick(const touchgfx::AbstractButton&)
+{
+    applyConfig();
+    touchgfx::Unicode::strncpy(modalBuf, "Applied!", 32);
+    modalText.setWildcard(modalBuf);
+    modalText.invalidate();
+    btnApply.setVisible(false);   btnApply.invalidate();
+    btnDiscard.setVisible(false); btnDiscard.invalidate();
+    btnCancel.setVisible(false);  btnCancel.invalidate();
+    applyLbl.setVisible(false);   applyLbl.invalidate();
+    discardLbl.setVisible(false); discardLbl.invalidate();
+    cancelLbl.setVisible(false);  cancelLbl.invalidate();
+    modalState = MODAL_RESULT;
+    resultTicks = 90;   /* ~1.5s（60Hz tick）*/
+}
+
+/* Discard：不写 SHM_CONFIG → 显示 Discarded! → 倒计时后回主屏 */
+void Settings_ScreenView::onDiscardClick(const touchgfx::AbstractButton&)
+{
+    touchgfx::Unicode::strncpy(modalBuf, "Discarded!", 32);
+    modalText.setWildcard(modalBuf);
+    modalText.invalidate();
+    btnApply.setVisible(false);   btnApply.invalidate();
+    btnDiscard.setVisible(false); btnDiscard.invalidate();
+    btnCancel.setVisible(false);  btnCancel.invalidate();
+    applyLbl.setVisible(false);   applyLbl.invalidate();
+    discardLbl.setVisible(false); discardLbl.invalidate();
+    cancelLbl.setVisible(false);  cancelLbl.invalidate();
+    modalState = MODAL_RESULT;
+    resultTicks = 90;
+}
+
+/* Cancel：留在 Settings，仅 hide modal */
+void Settings_ScreenView::onCancelClick(const touchgfx::AbstractButton&)
+{
+    hideConfirmModal();
+}
+
+void Settings_ScreenView::showConfirmModal()
+{
+    touchgfx::Unicode::strncpy(modalBuf, "Apply changes?", 32);
+    modalText.setWildcard(modalBuf);
+    modalText.invalidate();
+    btnApply.setVisible(true);   btnApply.invalidate();
+    btnDiscard.setVisible(true); btnDiscard.invalidate();
+    btnCancel.setVisible(true);  btnCancel.invalidate();
+    applyLbl.setVisible(true);   applyLbl.invalidate();
+    discardLbl.setVisible(true); discardLbl.invalidate();
+    cancelLbl.setVisible(true);  cancelLbl.invalidate();
+    modalOverlay.setVisible(true);
+    modalOverlay.invalidate();
+    modalState = MODAL_CONFIRM;
+}
+
+void Settings_ScreenView::hideConfirmModal()
+{
+    modalOverlay.setVisible(false);
+    modalText.invalidate();
+    btnApply.invalidate();
+    btnDiscard.invalidate();
+    btnCancel.invalidate();
+    modalPanel.invalidate();
+    modalShade.invalidate();
+    modalOverlay.invalidate();
+    modalState = MODAL_HIDDEN;
 }
