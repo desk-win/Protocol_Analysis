@@ -31,6 +31,8 @@
 /* USER CODE BEGIN Includes */
 #include "my_uart_check.h"
 #include "my_can_check.h"
+#include "my_i2c_check.h"
+#include "my_dwt_count.h"
 #include "shared_buf.h"
 #include "shared_config.h"   /* HSEM_ID_CONFIG + SHM_CONFIG 协议配置（CM7 写 → CM4 读改外设）*/
 /* USER CODE END Includes */
@@ -74,6 +76,7 @@ void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 static void apply_uart_config_from_shm(void);   /* HSEM 通知后：读 SHM_CONFIG 映射 HAL 枚举 → UART_Param_Change */
 static void apply_can_config_from_shm(void);    /* 读 SHM_CONFIG->can → 算 BRP/BS1/BS2 → CAN_Param_Change */
+static void apply_i2c_config_from_shm(void);    /* 读 SHM_CONFIG->i2c → My_I2C_Init 重配 I2C4 */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -143,8 +146,14 @@ int main(void)
   HAL_FDCAN_Start(&hfdcan1);
   CAN_Handler_Start();
 
+  /* DWT 初始化（I2C 协议分析用 Get_Sys_us 测时钟拉伸/帧间隔）*/
+  My_DWT_Init();
+  /* I2C 初始化：默认从机模式（own_address=0x50），7bit 寻址，100kHz。
+   * HAL_I2C_AddrCallback（在 my_i2c_check.c）自动收帧入 my_i2c_data。*/
+  My_I2C_Init(MY_I2C_SLAVE, 7, 0x50, 0, 0, 100000);
+
   /* 激活 HSEM ID=1 通知：CM7 写完 SHM_CONFIG 后 Release → 中断置 g_config_pending → 本循环重配外设。
-   * 放外设初始化之后：确保 UART6/FDCAN1 初始化完成才接收重配请求。*/
+   * 放外设初始化之后：确保 UART6/FDCAN1/I2C4 初始化完成才接收重配请求。*/
   HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_CONFIG));
 
   /* CM4 初始化 ring buffer：CM4→CM7 方向通(CM4无cache,写直达物理)，
@@ -164,6 +173,7 @@ int main(void)
     if (g_config_pending) {
       g_config_pending = 0;
       if (SHM_CONFIG->active_proto == 1) apply_uart_config_from_shm();
+      else if (SHM_CONFIG->active_proto == 3) apply_i2c_config_from_shm();
       else if (SHM_CONFIG->active_proto == 4) apply_can_config_from_shm();
     }
     /* CAN 模式：读 CAN ring（帧 data 字节）→ shm。
@@ -175,7 +185,15 @@ int main(void)
         for (uint8_t b = 0; b < dlc_len && b < 8; b++) shm_push(msg.my_can_data[b]);
       }
     }
-    /* 默认（未选 0 / UART 1 / SPI 2 / I2C 3 占位）：自环回 + 读 ring → shm 给 CM7 画波形 */
+    /* I2C 模式：从机收到的帧（my_i2c_data.i2c_slave_rxdata）→ shm 给 CM7 */
+    else if (SHM_CONFIG->active_proto == 3) {
+      if (my_i2c_data.task_done) {
+        my_i2c_data.task_done = 0;
+        for (uint32_t i = 0; i < my_i2c_data.i2c_slave_rxlen; i++)
+          shm_push(my_i2c_data.i2c_slave_rxdata[i]);
+      }
+    }
+    /* 默认（未选 0 / UART 1 / SPI 2 占位）：自环回 + 读 ring → shm 给 CM7 画波形 */
     else {
       if (bm_tick % 100 == 0)
       {
@@ -219,6 +237,8 @@ void HAL_HSEM_FreeCallback(uint32_t SemMask)
   if (SemMask & __HAL_HSEM_SEMID_TO_MASK(HSEM_ID_CONFIG))
   {
     g_config_pending = 1;
+    /* 重新激活通知：确保下次 CM7 Release 仍触发中断（防御性，部分场景 IER 被清）*/
+    HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_CONFIG));
   }
 }
 
@@ -287,6 +307,18 @@ static void apply_can_config_from_shm(void)
   } else {
     uart1_printf("[CM4] CAN reconfig FAIL\r\n");
   }
+}
+
+/* 读 SHM_CONFIG->i2c → My_I2C_Init 重配 I2C4（从机模式，监听 own_address）。
+ * SHM i2c_config_t: clock_speed/addressing(0=7bit,1=10bit)/own_address。*/
+static void apply_i2c_config_from_shm(void)
+{
+  i2c_config_t *i = &SHM_CONFIG->i2c;
+  uint8_t addr_mode = (i->addressing == 1) ? 10 : 7;
+  /* 从机模式：own_address 是自己地址；clock_speed 影响响应速率上限 */
+  My_I2C_Init(MY_I2C_SLAVE, addr_mode, (uint8_t)i->own_address, 0, 0, i->clock_speed);
+  uart1_printf("[CM4] I2C reconfig OK: %lu Hz, %u-bit, addr=0x%02X\r\n",
+               (unsigned long)i->clock_speed, (unsigned)addr_mode, (unsigned)i->own_address);
 }
 /* USER CODE END 4 */
 

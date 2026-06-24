@@ -4,6 +4,7 @@
 #include <texts/TextKeysAndLanguages.hpp>
 #include <stdio.h>
 #include <shared_config.h>
+#include "stm32h7xx.h"   /* SCB_Clean/InvalidateDCache_by_Addr（SHM_CONFIG 在 SRAM1，CM7 DCache 维护）*/
 
 /* CM7 main.c 提供的 HSEM 通知 shim（C++ 不直接碰 HAL，通过 extern "C" 调）*/
 extern "C" void shm_config_notify(void);
@@ -43,7 +44,7 @@ Settings_ScreenView::Settings_ScreenView()
       sMode(0), sData(4), sBaud(3), sFirst(0),
       iClock(0), iAddr(0),
       cBaud(3), cMode(0),
-      modalState(MODAL_HIDDEN), resultTicks(0)
+      modalState(MODAL_HIDDEN), pendingAction(PENDING_BACK), switchDir(0), resultTicks(0)
 {
 }
 
@@ -56,6 +57,9 @@ void Settings_ScreenView::setupScreen()
     box1.invalidate();
 
     selRow = 0;
+    /* invalidate DCache：SHM_CONFIG 在 SRAM1，CM7 DCache 可能缓存旧值（MPU non-cacheable 历史未完全生效，
+     * 参见 data_screen 的 SCB_InvalidateDCache_by_Addr）。不 invalidate → Apply 后再进 Settings 显示旧配置。*/
+    SCB_InvalidateDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);
     protoIdx = (SHM_CONFIG->active_proto >= 1 && SHM_CONFIG->active_proto <= 4) ? (SHM_CONFIG->active_proto - 1) : 0;
     /* UART idx 从 SHM_CONFIG 映射（其他协议用默认 idx，首次乱值不映射）*/
     uint32_t b = SHM_CONFIG->uart.baudrate;
@@ -66,6 +70,21 @@ void Settings_ScreenView::setupScreen()
     uStop = 0; for (uint8_t i = 0; i < 2; i++) if (u_stop[i] == s) { uStop = i; break; }
     uPar  = (SHM_CONFIG->uart.parity < 3)      ? SHM_CONFIG->uart.parity      : 0;
     uFlow = (SHM_CONFIG->uart.flowcontrol < 4) ? SHM_CONFIG->uart.flowcontrol : 0;
+    /* SPI idx 从 SHM_CONFIG 映射（再进 Settings 显示保存值，不只 UART）*/
+    { uint32_t sb = SHM_CONFIG->spi.baudrate;
+      sBaud = 3; for (uint8_t i = 0; i < 6; i++) if (s_baud[i] == sb) { sBaud = i; break; } }
+    { uint8_t sd = SHM_CONFIG->spi.datasize;
+      sData = 4; for (uint8_t i = 0; i < 7; i++) if (s_data[i] == sd) { sData = i; break; } }
+    sMode  = (SHM_CONFIG->spi.mode < 4)     ? SHM_CONFIG->spi.mode     : 0;
+    sFirst = (SHM_CONFIG->spi.firstbit < 2) ? SHM_CONFIG->spi.firstbit : 0;
+    /* I2C idx 从 SHM_CONFIG 映射 */
+    { uint32_t ic = SHM_CONFIG->i2c.clock_speed;
+      iClock = 0; for (uint8_t i = 0; i < 3; i++) if (i_clk[i] == ic) { iClock = i; break; } }
+    iAddr = (SHM_CONFIG->i2c.addressing < 2) ? SHM_CONFIG->i2c.addressing : 0;
+    /* CAN idx 从 SHM_CONFIG 映射 */
+    { uint32_t cb = SHM_CONFIG->can.baudrate;
+      cBaud = 3; for (uint8_t i = 0; i < 5; i++) if (c_baud[i] == cb) { cBaud = i; break; } }
+    cMode = (SHM_CONFIG->can.mode < 4) ? SHM_CONFIG->can.mode : 0;
 
     /* snap：保存进屏幕时的所有 idx，onBackClick 对比用（refreshAll 不写 SHM_CONFIG，cancel 自然回退）*/
     snap.protoIdx = protoIdx;
@@ -155,8 +174,16 @@ void Settings_ScreenView::handleTickEvent()
     {
         if (--resultTicks <= 0)
         {
+            int act = pendingAction;
             hideConfirmModal();
-            application().gotostart_screenScreenNoTransition();
+            if (act == PENDING_SWITCH) {
+                /* 切协议（wrap）+ 刷新显示。
+                 * snap 已在 applyConfig 更新（Apply）或 revertCurrentProtoToSnap 回退（Discard）*/
+                protoIdx = (uint8_t)((protoIdx + switchDir + 4) % 4);
+                refreshAll();
+            } else {
+                application().gotostart_screenScreenNoTransition();
+            }
         }
     }
 }
@@ -222,6 +249,10 @@ void Settings_ScreenView::applyConfig()
     SHM_CONFIG->i2c.addressing      = iAddr;
     SHM_CONFIG->can.baudrate        = c_baud[cBaud];
     SHM_CONFIG->can.mode            = cMode;
+    __DSB();
+    /* clean DCache：CM7 写 SHM_CONFIG 后强制刷到物理，CM4（无 cache）读到的就是新值。
+     * 配合 setupScreen 的 invalidate，实现 CM7↔CM4 config 一致。*/
+    SCB_CleanDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);
     shm_config_notify();   /* __DSB + HAL_HSEM_Release(HSEM_ID_CONFIG) → CM4 中断读 */
     /* snap 更新为当前（已应用），避免同一次会话内重复弹窗 */
     snap.protoIdx = protoIdx;
@@ -234,8 +265,8 @@ void Settings_ScreenView::applyConfig()
 /* 对比 snap：用户是否改过任何 idx（改过点 back 才弹确认）*/
 bool Settings_ScreenView::hasChanges()
 {
-    return protoIdx != snap.protoIdx ||
-           uBaud != snap.uBaud || uData != snap.uData || uStop != snap.uStop ||
+    /* 不含 protoIdx：切协议本身不算改动（切协议是浏览，改了参数才算）*/
+    return uBaud != snap.uBaud || uData != snap.uData || uStop != snap.uStop ||
            uPar != snap.uPar || uFlow != snap.uFlow ||
            sMode != snap.sMode || sData != snap.sData || sBaud != snap.sBaud || sFirst != snap.sFirst ||
            iClock != snap.iClock || iAddr != snap.iAddr ||
@@ -256,7 +287,10 @@ void Settings_ScreenView::onDownClick(const touchgfx::AbstractButton&)
 /* +/- 按 selRow+protoIdx 改对应 idx（编码 protoIdx*16+selRow 区分）*/
 void Settings_ScreenView::onPlusClick(const touchgfx::AbstractButton&)
 {
-    if (selRow == 0) { protoIdx = (protoIdx + 1) % 4; refreshAll(); return; }
+    if (selRow == 0) {
+        if (hasChanges()) { switchDir = +1; showConfirmModal(PENDING_SWITCH); return; }
+        protoIdx = (protoIdx + 1) % 4; refreshAll(); return;
+    }
     switch (protoIdx * 16 + selRow) {
         case 0*16+1: uBaud  = (uBaud  + 1) % 8; break;
         case 0*16+2: uData  = (uData  + 1) % 3; break;
@@ -277,7 +311,10 @@ void Settings_ScreenView::onPlusClick(const touchgfx::AbstractButton&)
 
 void Settings_ScreenView::onMinusClick(const touchgfx::AbstractButton&)
 {
-    if (selRow == 0) { protoIdx = (protoIdx == 0) ? 3 : (protoIdx - 1); refreshAll(); return; }
+    if (selRow == 0) {
+        if (hasChanges()) { switchDir = -1; showConfirmModal(PENDING_SWITCH); return; }
+        protoIdx = (protoIdx == 0) ? 3 : (protoIdx - 1); refreshAll(); return;
+    }
     switch (protoIdx * 16 + selRow) {
         case 0*16+1: uBaud  = (uBaud  == 0) ? 7 : (uBaud  - 1); break;
         case 0*16+2: uData  = (uData  == 0) ? 2 : (uData  - 1); break;
@@ -299,7 +336,7 @@ void Settings_ScreenView::onMinusClick(const touchgfx::AbstractButton&)
 /* back：改过参数 → 弹确认；没改过直接回主屏 */
 void Settings_ScreenView::onBackClick(const touchgfx::AbstractButton&)
 {
-    if (hasChanges()) showConfirmModal();
+    if (hasChanges()) showConfirmModal(PENDING_BACK);
     else application().gotostart_screenScreenNoTransition();
 }
 
@@ -323,6 +360,7 @@ void Settings_ScreenView::onApplyClick(const touchgfx::AbstractButton&)
 /* Discard：不写 SHM_CONFIG → 显示 Discarded! → 倒计时后回主屏 */
 void Settings_ScreenView::onDiscardClick(const touchgfx::AbstractButton&)
 {
+    revertCurrentProtoToSnap();   /* 丢弃当前协议改动：idx 回退 snap */
     touchgfx::Unicode::strncpy(modalBuf, "Discarded!", 32);
     modalText.setWildcard(modalBuf);
     modalText.invalidate();
@@ -342,8 +380,9 @@ void Settings_ScreenView::onCancelClick(const touchgfx::AbstractButton&)
     hideConfirmModal();
 }
 
-void Settings_ScreenView::showConfirmModal()
+void Settings_ScreenView::showConfirmModal(int action)
 {
+    pendingAction = (uint8_t)action;
     touchgfx::Unicode::strncpy(modalBuf, "Apply changes?", 32);
     modalText.setWildcard(modalBuf);
     modalText.invalidate();
@@ -369,4 +408,15 @@ void Settings_ScreenView::hideConfirmModal()
     modalShade.invalidate();
     modalOverlay.invalidate();
     modalState = MODAL_HIDDEN;
+}
+
+/* Discard 时回退当前协议 idx 到 snap（丢弃用户改动，切协议后旧协议显示原始值）*/
+void Settings_ScreenView::revertCurrentProtoToSnap()
+{
+    switch (protoIdx) {
+        case 0: uBaud=snap.uBaud; uData=snap.uData; uStop=snap.uStop; uPar=snap.uPar; uFlow=snap.uFlow; break;
+        case 1: sMode=snap.sMode; sData=snap.sData; sBaud=snap.sBaud; sFirst=snap.sFirst; break;
+        case 2: iClock=snap.iClock; iAddr=snap.iAddr; break;
+        case 3: cBaud=snap.cBaud; cMode=snap.cMode; break;
+    }
 }

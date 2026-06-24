@@ -50,8 +50,9 @@ protected:
     void onApplyClick(const touchgfx::AbstractButton&);
     void onDiscardClick(const touchgfx::AbstractButton&);
     void onCancelClick(const touchgfx::AbstractButton&);
-    void showConfirmModal();
+    void showConfirmModal(int action);   /* action: PENDING_BACK/PENDING_SWITCH */
     void hideConfirmModal();
+    void revertCurrentProtoToSnap();     /* Discard 时回退当前协议 idx 到 snap（丢弃改动）*/
     /* snap：进屏幕时所有 idx 的副本，hasChanges 对比用（refreshAll 不写 SHM_CONFIG，cancel 自然回退）*/
     struct { uint8_t protoIdx, uBaud, uData, uStop, uPar, uFlow, sMode, sData, sBaud, sFirst, iClock, iAddr, cBaud, cMode; } snap;
     /* 确认 modal（等效 data_screen：遮罩 + 面板 + 文本 + 3 按钮 + TextArea 标签）*/
@@ -64,6 +65,9 @@ protected:
     touchgfx::TextAreaWithOneWildcard applyLbl, discardLbl, cancelLbl;
     touchgfx::Unicode::UnicodeChar applyBuf[12], discardBuf[12], cancelBuf[12];
     enum { MODAL_HIDDEN, MODAL_CONFIRM, MODAL_RESULT } modalState;
+    enum { PENDING_BACK = 0, PENDING_SWITCH = 1 };   /* pendingAction 取值常量 */
+    uint8_t pendingAction;   /* 弹窗触发：PENDING_BACK/PENDING_SWITCH */
+    int8_t switchDir;   /* PENDING_SWITCH 时切协议方向 +1/−1 */
     uint16_t resultTicks;
 };
 

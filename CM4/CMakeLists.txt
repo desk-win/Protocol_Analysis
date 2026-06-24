@@ -61,6 +61,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     Core/Src/my_uart_check.c
     Core/Src/my_can_check.c
+    Core/Src/my_i2c_check.c
+    Core/Src/my_dwt_count.c
 )
 
 # Link directories setup
