@@ -32,6 +32,7 @@
 #include "my_uart_check.h"
 #include "my_can_check.h"
 #include "my_i2c_check.h"
+#include "my_spi_check.h"
 #include "my_dwt_count.h"
 #include "shared_buf.h"
 #include "shared_config.h"   /* HSEM_ID_CONFIG + SHM_CONFIG 协议配置（CM7 写 → CM4 读改外设）*/
@@ -68,6 +69,10 @@
 
 /* USER CODE BEGIN PV */
 volatile uint8_t g_config_pending = 0;   /* HSEM ID=1 中断置位 → main 循环读 SHM_CONFIG 重配 UART */
+
+/* SPI master 模式 IT 非阻塞：tx/rx buffer 必须 file-scope static（不能用栈）*/
+static uint8_t spi_tx_buf[8];
+static uint8_t spi_rx_tmp[8];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,6 +82,7 @@ void MX_FREERTOS_Init(void);
 static void apply_uart_config_from_shm(void);   /* HSEM 通知后：读 SHM_CONFIG 映射 HAL 枚举 → UART_Param_Change */
 static void apply_can_config_from_shm(void);    /* 读 SHM_CONFIG->can → 算 BRP/BS1/BS2 → CAN_Param_Change */
 static void apply_i2c_config_from_shm(void);    /* 读 SHM_CONFIG->i2c → My_I2C_Init 重配 I2C4 */
+static void apply_spi_config_from_shm(void);    /* 读 SHM_CONFIG->spi → My_SPI_Init 重配 SPI6（slave/master）*/
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -152,6 +158,11 @@ int main(void)
    * HAL_I2C_AddrCallback（在 my_i2c_check.c）自动收帧入 my_i2c_data。*/
   My_I2C_Init(MY_I2C_SLAVE, 7, 0x50, 0, 0, 100000);
 
+  /* SPI 初始化：默认从机模式（mode0/CS低有效），CS 当 EXTI 双边沿 + DMA 预 arm 收数据。
+   * HAL_GPIO_EXTI_Callback（在 my_spi_check.c）自动收帧入 spi_range_buffer。*/
+  HAL_GPIO_WritePin(SPI6_CS_GPIO_Port, SPI6_CS_Pin, GPIO_PIN_SET);  /* CS regen 兜底：gpio.c:49 regen 重置成 RESET */
+  My_SPI_Init(0, MY_SPI_SLAVE, 0, 64, 0);
+
   /* 激活 HSEM ID=1 通知：CM7 写完 SHM_CONFIG 后 Release → 中断置 g_config_pending → 本循环重配外设。
    * 放外设初始化之后：确保 UART6/FDCAN1/I2C4 初始化完成才接收重配请求。*/
   HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_CONFIG));
@@ -173,6 +184,7 @@ int main(void)
     if (g_config_pending) {
       g_config_pending = 0;
       if (SHM_CONFIG->active_proto == 1) apply_uart_config_from_shm();
+      else if (SHM_CONFIG->active_proto == 2) apply_spi_config_from_shm();
       else if (SHM_CONFIG->active_proto == 3) apply_i2c_config_from_shm();
       else if (SHM_CONFIG->active_proto == 4) apply_can_config_from_shm();
     }
@@ -193,7 +205,20 @@ int main(void)
           shm_push(my_i2c_data.i2c_slave_rxdata[i]);
       }
     }
-    /* 默认（未选 0 / UART 1 / SPI 2 占位）：自环回 + 读 ring → shm 给 CM7 画波形 */
+    /* SPI 模式：master 周期主动收发 → ring；slave 由 CS EXTI 自动填 ring → shm 给 CM7 */
+    else if (SHM_CONFIG->active_proto == 2) {
+      if (spi_deploy.spi_role == MY_SPI_MASTER) {
+        /* master 自环回/流量发生器：v1 TX 写死递增（spec §8 #3，hex 输入留 v2）*/
+        if (bm_tick % 100 == 0 && if_busy == 0) {
+          for (int i = 0; i < 5; i++) spi_tx_buf[i] = (uint8_t)(tx_base + i);
+          My_SPI_SendReceive(spi_tx_buf, spi_rx_tmp, 5);
+          tx_base += 5;
+        }
+      }
+      uint32_t n = SPI_RangeBuffer_Read(rx_buf, sizeof(rx_buf));
+      for (uint32_t i = 0; i < n; i++) shm_push(rx_buf[i]);
+    }
+    /* 默认（未选 0 / UART 1）：自环回 + 读 ring → shm 给 CM7 画波形 */
     else {
       if (bm_tick % 100 == 0)
       {
@@ -319,6 +344,25 @@ static void apply_i2c_config_from_shm(void)
   My_I2C_Init(MY_I2C_SLAVE, addr_mode, (uint8_t)i->own_address, 0, 0, i->clock_speed);
   uart1_printf("[CM4] I2C reconfig OK: %lu Hz, %u-bit, addr=0x%02X\r\n",
                (unsigned long)i->clock_speed, (unsigned)addr_mode, (unsigned)i->own_address);
+}
+
+/* 读 SHM_CONFIG->spi → My_SPI_Init 重配 SPI6。
+ * role: 0=Slave（被动收，baudrate 无效），1=Master（主动收发）。
+ * datasize 在 init 前赋 hspi6.Init.DataSize（队友 My_SPI_Init 不覆盖该字段，HAL_SPI_DeInit 也不清 Init 结构体）。
+ * cs_polarity v1 硬编码 0（低有效），UI 未暴露。*/
+static void apply_spi_config_from_shm(void)
+{
+  spi_config_t *s = &SHM_CONFIG->spi;
+  hspi6.Init.DataSize = spi_datasize_from_u8(s->datasize);
+  hspi6.Init.FirstBit = (s->firstbit) ? SPI_FIRSTBIT_LSB : SPI_FIRSTBIT_MSB;
+  if (s->role == 1) {
+    My_SPI_Init(s->mode, MY_SPI_MASTER, 0, spi_prescaler_from_baud(s->baudrate), 0);
+  } else {
+    My_SPI_Init(s->mode, MY_SPI_SLAVE, 0, 64, 0);
+  }
+  uart1_printf("[CM4] SPI reconfig OK: role=%s mode=%u ds=%u first=%u\r\n",
+               s->role ? "MASTER" : "SLAVE", (unsigned)s->mode,
+               (unsigned)s->datasize, (unsigned)s->firstbit);
 }
 /* USER CODE END 4 */
 
