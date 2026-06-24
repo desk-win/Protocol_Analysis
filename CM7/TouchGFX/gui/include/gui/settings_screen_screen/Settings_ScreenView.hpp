@@ -38,7 +38,7 @@ protected:
     /* UART 参数 idx */
     uint8_t uBaud, uData, uStop, uPar, uFlow;
     /* SPI 参数 idx */
-    uint8_t sMode, sData, sBaud, sFirst;
+    uint8_t sMode, sData, sBaud, sFirst, sRole;   /* sRole: 0=Slave, 1=Master */
     /* I2C 参数 idx */
     uint8_t iClock, iAddr;
     /* CAN 参数 idx */
@@ -54,7 +54,7 @@ protected:
     void hideConfirmModal();
     void revertCurrentProtoToSnap();     /* Discard 时回退当前协议 idx 到 snap（丢弃改动）*/
     /* snap：进屏幕时所有 idx 的副本，hasChanges 对比用（refreshAll 不写 SHM_CONFIG，cancel 自然回退）*/
-    struct { uint8_t protoIdx, uBaud, uData, uStop, uPar, uFlow, sMode, sData, sBaud, sFirst, iClock, iAddr, cBaud, cMode; } snap;
+    struct { uint8_t protoIdx, uBaud, uData, uStop, uPar, uFlow, sMode, sData, sBaud, sFirst, sRole, iClock, iAddr, cBaud, cMode; } snap;
     /* 确认 modal（等效 data_screen：遮罩 + 面板 + 文本 + 3 按钮 + TextArea 标签）*/
     touchgfx::Container modalOverlay;
     touchgfx::Box modalShade;

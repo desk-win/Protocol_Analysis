@@ -19,7 +19,8 @@ static const char*    u_par[3]   = {"None", "Even", "Odd"};
 static const char*    u_flow[4]  = {"None", "RTS", "CTS", "RTS/CTS"};
 /* SPI */
 static const char*    s_modeD[4] = {"0", "1", "2", "3"};
-static const uint8_t  s_data[7]  = {4, 5, 6, 7, 8, 12, 16};
+static const uint8_t  s_data[5]  = {4, 5, 6, 7, 8};        /* v1 ≤8：BDMA byte 对齐限制（spec §8 #1）*/
+static const char*    s_roleD[2] = {"Slave", "Master"};
 static const uint32_t s_baud[6]  = {187500, 375000, 750000, 1500000, 3000000, 6000000};
 static const char*    s_first[2] = {"MSB", "LSB"};
 /* I2C */
@@ -41,7 +42,7 @@ Settings_ScreenView::Settings_ScreenView()
       cancelCb(this, &Settings_ScreenView::onCancelClick),
       selRow(0), protoIdx(0),
       uBaud(4), uData(1), uStop(0), uPar(0), uFlow(0),
-      sMode(0), sData(4), sBaud(3), sFirst(0),
+      sMode(0), sData(4), sBaud(3), sFirst(0), sRole(0),
       iClock(0), iAddr(0),
       cBaud(3), cMode(0),
       modalState(MODAL_HIDDEN), pendingAction(PENDING_BACK), switchDir(0), resultTicks(0)
@@ -74,7 +75,8 @@ void Settings_ScreenView::setupScreen()
     { uint32_t sb = SHM_CONFIG->spi.baudrate;
       sBaud = 3; for (uint8_t i = 0; i < 6; i++) if (s_baud[i] == sb) { sBaud = i; break; } }
     { uint8_t sd = SHM_CONFIG->spi.datasize;
-      sData = 4; for (uint8_t i = 0; i < 7; i++) if (s_data[i] == sd) { sData = i; break; } }
+      sData = 4; for (uint8_t i = 0; i < 5; i++) if (s_data[i] == sd) { sData = i; break; } }
+    sRole = (SHM_CONFIG->spi.role < 2) ? SHM_CONFIG->spi.role : 0;
     sMode  = (SHM_CONFIG->spi.mode < 4)     ? SHM_CONFIG->spi.mode     : 0;
     sFirst = (SHM_CONFIG->spi.firstbit < 2) ? SHM_CONFIG->spi.firstbit : 0;
     /* I2C idx 从 SHM_CONFIG 映射 */
@@ -89,7 +91,7 @@ void Settings_ScreenView::setupScreen()
     /* snap：保存进屏幕时的所有 idx，onBackClick 对比用（refreshAll 不写 SHM_CONFIG，cancel 自然回退）*/
     snap.protoIdx = protoIdx;
     snap.uBaud = uBaud; snap.uData = uData; snap.uStop = uStop; snap.uPar = uPar; snap.uFlow = uFlow;
-    snap.sMode = sMode; snap.sData = sData; snap.sBaud = sBaud; snap.sFirst = sFirst;
+    snap.sMode = sMode; snap.sData = sData; snap.sBaud = sBaud; snap.sFirst = sFirst; snap.sRole = sRole;
     snap.iClock = iClock; snap.iAddr = iAddr;
     snap.cBaud = cBaud; snap.cMode = cMode;
 
@@ -210,12 +212,12 @@ void Settings_ScreenView::refreshAll()
             ROW(4, "%s Parity: %s",  u_par[uPar]);
             ROW(5, "%s Flow: %s",    u_flow[uFlow]);
             break;
-        case 1: /* SPI 4 参数 + row5 空 */
+        case 1: /* SPI 5 参数：mode/data/baud/first/role */
             ROW(1, "%s Mode: %s",    s_modeD[sMode]);
             ROW(2, "%s Data: %u",    (unsigned)s_data[sData]);
             ROW(3, "%s Baud: %lu",   (unsigned long)s_baud[sBaud]);
             ROW(4, "%s First: %s",   s_first[sFirst]);
-            ROWEMPTY(5);
+            ROW(5, "%s Role: %s",    s_roleD[sRole]);
             break;
         case 2: /* I2C 2 参数 + row3-5 空 */
             ROW(1, "%s Clock: %lu",  (unsigned long)i_clk[iClock]);
@@ -245,6 +247,7 @@ void Settings_ScreenView::applyConfig()
     SHM_CONFIG->spi.datasize        = s_data[sData];
     SHM_CONFIG->spi.baudrate        = s_baud[sBaud];
     SHM_CONFIG->spi.firstbit        = sFirst;
+    SHM_CONFIG->spi.role            = sRole;
     SHM_CONFIG->i2c.clock_speed     = i_clk[iClock];
     SHM_CONFIG->i2c.addressing      = iAddr;
     SHM_CONFIG->can.baudrate        = c_baud[cBaud];
@@ -257,7 +260,7 @@ void Settings_ScreenView::applyConfig()
     /* snap 更新为当前（已应用），避免同一次会话内重复弹窗 */
     snap.protoIdx = protoIdx;
     snap.uBaud = uBaud; snap.uData = uData; snap.uStop = uStop; snap.uPar = uPar; snap.uFlow = uFlow;
-    snap.sMode = sMode; snap.sData = sData; snap.sBaud = sBaud; snap.sFirst = sFirst;
+    snap.sMode = sMode; snap.sData = sData; snap.sBaud = sBaud; snap.sFirst = sFirst; snap.sRole = sRole;
     snap.iClock = iClock; snap.iAddr = iAddr;
     snap.cBaud = cBaud; snap.cMode = cMode;
 }
@@ -269,6 +272,7 @@ bool Settings_ScreenView::hasChanges()
     return uBaud != snap.uBaud || uData != snap.uData || uStop != snap.uStop ||
            uPar != snap.uPar || uFlow != snap.uFlow ||
            sMode != snap.sMode || sData != snap.sData || sBaud != snap.sBaud || sFirst != snap.sFirst ||
+           sRole != snap.sRole ||
            iClock != snap.iClock || iAddr != snap.iAddr ||
            cBaud != snap.cBaud || cMode != snap.cMode;
 }
@@ -298,9 +302,10 @@ void Settings_ScreenView::onPlusClick(const touchgfx::AbstractButton&)
         case 0*16+4: uPar   = (uPar   + 1) % 3; break;
         case 0*16+5: uFlow  = (uFlow  + 1) % 4; break;
         case 1*16+1: sMode  = (sMode  + 1) % 4; break;
-        case 1*16+2: sData  = (sData  + 1) % 7; break;
+        case 1*16+2: sData  = (sData  + 1) % 5; break;
         case 1*16+3: sBaud  = (sBaud  + 1) % 6; break;
         case 1*16+4: sFirst = (sFirst + 1) % 2; break;
+        case 1*16+5: sRole  = (sRole  + 1) % 2; break;
         case 2*16+1: iClock = (iClock + 1) % 3; break;
         case 2*16+2: iAddr  = (iAddr  + 1) % 2; break;
         case 3*16+1: cBaud  = (cBaud  + 1) % 5; break;
@@ -322,9 +327,10 @@ void Settings_ScreenView::onMinusClick(const touchgfx::AbstractButton&)
         case 0*16+4: uPar   = (uPar   == 0) ? 2 : (uPar   - 1); break;
         case 0*16+5: uFlow  = (uFlow  == 0) ? 3 : (uFlow  - 1); break;
         case 1*16+1: sMode  = (sMode  == 0) ? 3 : (sMode  - 1); break;
-        case 1*16+2: sData  = (sData  == 0) ? 6 : (sData  - 1); break;
+        case 1*16+2: sData  = (sData  == 0) ? 4 : (sData  - 1); break;
         case 1*16+3: sBaud  = (sBaud  == 0) ? 5 : (sBaud  - 1); break;
         case 1*16+4: sFirst = (sFirst == 0) ? 1 : (sFirst - 1); break;
+        case 1*16+5: sRole  = (sRole  == 0) ? 1 : (sRole  - 1); break;
         case 2*16+1: iClock = (iClock == 0) ? 2 : (iClock - 1); break;
         case 2*16+2: iAddr  = (iAddr  == 0) ? 1 : (iAddr  - 1); break;
         case 3*16+1: cBaud  = (cBaud  == 0) ? 4 : (cBaud  - 1); break;
