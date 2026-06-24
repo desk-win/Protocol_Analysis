@@ -421,7 +421,7 @@ void Settings_ScreenView::revertCurrentProtoToSnap()
 {
     switch (protoIdx) {
         case 0: uBaud=snap.uBaud; uData=snap.uData; uStop=snap.uStop; uPar=snap.uPar; uFlow=snap.uFlow; break;
-        case 1: sMode=snap.sMode; sData=snap.sData; sBaud=snap.sBaud; sFirst=snap.sFirst; break;
+        case 1: sMode=snap.sMode; sData=snap.sData; sBaud=snap.sBaud; sFirst=snap.sFirst; sRole=snap.sRole; break;
         case 2: iClock=snap.iClock; iAddr=snap.iAddr; break;
         case 3: cBaud=snap.cBaud; cMode=snap.cMode; break;
     }
