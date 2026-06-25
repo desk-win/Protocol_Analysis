@@ -57,6 +57,10 @@ typedef struct {
 
 #define SHM_CONFIG  ((proto_config_t *)SHM_CONFIG_ADDR)
 
+/* 录制文件 header 标识（"RECL" LE）：.log 文件首 4 字节，后跟 proto_config_t 再跟波形字节 */
+#define REC_MAGIC         0x4C434552U
+#define REC_HEADER_LEN    (sizeof(uint32_t) + sizeof(proto_config_t))
+
 /* 默认值（CM4 上电初始化 / UI 默认）*/
 #define UART_DEFAULT_BAUDRATE   115200U
 #define UART_DEFAULT_DATABITS   8U

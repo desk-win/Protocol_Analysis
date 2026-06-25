@@ -29,6 +29,7 @@
 #include "app_touchgfx.h"   /* provides TouchGFX_Task() */
 #include "FreeRTOSConfig.h"
 #include "shared_buf.h"
+#include "shared_config.h"   /* proto_config_t / SHM_CONFIG / REC_MAGIC（录制 header 读写）*/
 #include "fatfs.h"          /* f_mount/f_open/f_write + SDFatFS/SDPath/FIL */
 #include "sdmmc.h"          /* hsd2（HAL_SD_GetCardInfo 填容量给 SD_Test_Screen）*/
 #include <stdio.h>          /* snprintf（文件序号命名）*/
@@ -216,6 +217,9 @@ void StartDefaultTask(void *argument)
   /* 4 协议按钮记录控制（方案A：按钮控制 CM7 记录，CM4 持续发）*/
   extern volatile uint8_t g_record_req;     /* 按钮请求：0=无, 1=UART, 2=SPI, 3=I2C, 4=CAN */
   extern volatile uint8_t g_record_active;  /* 当前记录：0=没记, 1-4=协议 */
+  extern volatile proto_config_t g_playback_cfg;      /* 回放读出的录制时配置（main.c 定义）*/
+  extern volatile uint8_t  g_playback_cfg_valid;
+  extern volatile uint32_t g_playback_header_len;
   /* 文件名前缀分类：d_=数字信号(方波), a_=模拟信号(未来折线)。
    * 每协议保留 PROTO_FILE_COUNT 个文件，轮转序号（d_uart_1.log, d_uart_2.log, ...）。
    * 文件列表 f_opendir 按前缀判断类型，回放按类型选 widget。*/
@@ -292,11 +296,25 @@ void StartDefaultTask(void *argument)
         snprintf(path, sizeof(path), "0:%s", g_file_list[g_playback_file_idx].name);
         if (f_open(&play_file, path, FA_READ) == FR_OK)
         {
+          /* 读配置 header：magic+proto_config_t。匹配则按录制时配置回放，否则老文件从头当波形 */
+          UINT br_h = 0;
+          uint32_t magic = 0;
+          f_read(&play_file, &magic, sizeof(magic), &br_h);
+          if (br_h == sizeof(magic) && magic == REC_MAGIC) {
+            UINT br_c = 0;
+            f_read(&play_file, (void*)&g_playback_cfg, sizeof(proto_config_t), &br_c);
+            g_playback_cfg_valid = (br_c == sizeof(proto_config_t)) ? 1U : 0U;
+            g_playback_header_len = REC_HEADER_LEN;
+          } else {
+            f_lseek(&play_file, 0);            /* 老文件无 header：从头当波形 */
+            g_playback_cfg_valid = 0U;
+            g_playback_header_len = 0U;
+          }
           UINT br = 0;
           f_read(&play_file, g_playback_buf, PLAYBACK_BUF_SIZE, &br);
-          g_playback_len = br;            /* 首块有效字节 */
-          g_playback_buf_start = 0;       /* buf 对应文件 [0, br) */
-          g_playback_file_size = f_size(&play_file);  /* 文件总大小（支持 >4KB 分块）*/
+          g_playback_len = br;            /* 首块有效字节（header 后）*/
+          g_playback_buf_start = 0;       /* buf 对应波形 [0, br) */
+          g_playback_file_size = f_size(&play_file) - g_playback_header_len;  /* 波形净大小（进度条准）*/
           g_playback_pos = 0;
           g_playback_pause = 1;   /* 进回放默认暂停，用户点 Run 才自动播放 */
           g_playback_mode = 1;
@@ -309,7 +327,7 @@ void StartDefaultTask(void *argument)
     {
       g_playback_reload = 0;
       UINT br = 0;
-      f_lseek(&play_file, g_playback_pos);
+      f_lseek(&play_file, g_playback_header_len + g_playback_pos);   /* header_len 偏移（老文件=0）*/
       f_read(&play_file, g_playback_buf, PLAYBACK_BUF_SIZE, &br);
       g_playback_buf_start = g_playback_pos;
       g_playback_len = br;
@@ -361,6 +379,14 @@ void StartDefaultTask(void *argument)
           }
           if (fo == FR_OK)
           {
+            /* 写配置 header：magic + 当时全部协议配置(proto_config_t)。
+             * 回放时读出按此还原波形 framing，不随当前 live 配置变。 */
+            SCB_InvalidateDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);
+            UINT bw_h = 0;
+            uint32_t magic = REC_MAGIC;
+            f_write(&sd_file, &magic, sizeof(magic), &bw_h);
+            f_write(&sd_file, (const void*)SHM_CONFIG, sizeof(proto_config_t), &bw_h);
+            f_sync(&sd_file);
             sd_ready = 1U;
             g_record_active = req;
             g_sd_written = 0U;   /* 切换协议 = 开新文件，字节数归零重新计 */

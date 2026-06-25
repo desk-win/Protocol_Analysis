@@ -47,21 +47,8 @@ void Data_screenView::setupScreen()
 
     /* 时序波形：宽 450（裁剪长度）+ 高 100（恢复），右侧 X500+ 留给按钮 */
     waveWidget.setPosition(50, 185, 450, 100);
-    /* 波形按当前协议画：UART 带起始/校验/停止位(framed)，SPI/I2C/CAN 只画数据位 */
-    uint8_t wd_bits, wd_par, wd_stop;  bool wd_framed;
-    switch (SHM_CONFIG->active_proto) {
-        case 2:  /* SPI: datasize bit, 无 framing */
-            wd_bits = SHM_CONFIG->spi.datasize; wd_par = 0; wd_stop = 1; wd_framed = false; break;
-        case 3:  /* I2C */
-        case 4:  /* CAN: 字节流 8bit 无 framing */
-            wd_bits = 8; wd_par = 0; wd_stop = 1; wd_framed = false; break;
-        case 1:  /* UART: 完整 framing */
-        default:
-            wd_bits = SHM_CONFIG->uart.databits; wd_par = SHM_CONFIG->uart.parity;
-            wd_stop = SHM_CONFIG->uart.stopbits; wd_framed = true; break;
-    }
-    waveWidget.setParams(6, 20, 70, touchgfx::Color::getColorFromRGB(0, 255, 0), touchgfx::Color::getColorFromRGB(0, 0, 0), 10,
-                         wd_bits, wd_par, wd_stop, wd_framed);
+    /* 波形参数：进屏用 live SHM_CONFIG；进回放时 handleTickEvent 用录制时 g_playback_cfg 重设 */
+    applyWaveConfig();
     add(waveWidget);
 
     /* "协议选择"按钮 toggle Container 显示/隐藏（Callback 成员在构造函数初始化）*/
@@ -186,6 +173,38 @@ void Data_screenView::tearDownScreen()
     Data_screenViewBase::tearDownScreen();
 }
 
+/* 按当前应使用的协议配置设 waveWidget 参数：
+ * 回放模式(g_playback_mode=1) 且录制配置有效 → 用录制时 g_playback_cfg（还原当时 framing）；
+ * 否则用 live SHM_CONFIG。UART=framed(起始/校验/停止)，SPI(datasize)/I2C/CAN=只数据位。*/
+void Data_screenView::applyWaveConfig()
+{
+    extern volatile proto_config_t g_playback_cfg;
+    extern volatile uint8_t g_playback_cfg_valid;
+    /* 快照到本地非 volatile（避免 volatile 结构体逐字段解引用的麻烦）*/
+    proto_config_t c;
+    if (g_playback_mode && g_playback_cfg_valid) {
+        const uint8_t *src = (const uint8_t*)&g_playback_cfg;
+        for (uint8_t i = 0; i < sizeof(proto_config_t); i++) ((uint8_t*)&c)[i] = src[i];
+    } else {
+        const uint8_t *src = (const uint8_t*)SHM_CONFIG;
+        for (uint8_t i = 0; i < sizeof(proto_config_t); i++) ((uint8_t*)&c)[i] = src[i];
+    }
+    uint8_t wd_bits, wd_par, wd_stop;  bool wd_framed;
+    switch (c.active_proto) {
+        case 2:  /* SPI: datasize 个数据位，无 framing */
+            wd_bits = c.spi.datasize; wd_par = 0; wd_stop = 1; wd_framed = false; break;
+        case 3:  /* I2C */
+        case 4:  /* CAN: 字节流 8bit，无 framing */
+            wd_bits = 8; wd_par = 0; wd_stop = 1; wd_framed = false; break;
+        case 1:  /* UART: 完整 framing */
+        default:
+            wd_bits = c.uart.databits; wd_par = c.uart.parity;
+            wd_stop = c.uart.stopbits; wd_framed = true; break;
+    }
+    waveWidget.setParams(6, 20, 70, touchgfx::Color::getColorFromRGB(0, 255, 0), touchgfx::Color::getColorFromRGB(0, 0, 0), 10,
+                         wd_bits, wd_par, wd_stop, wd_framed);
+}
+
 void Data_screenView::handleTickEvent()
 {
     Data_screenViewBase::handleTickEvent();
@@ -218,6 +237,7 @@ void Data_screenView::handleTickEvent()
         if (!playbackUiShown)
         {
             playbackUiShown = true;
+            applyWaveConfig();   /* 进回放：按录制时 g_playback_cfg 重设波形 framing（替代 live 配置）*/
             choose.setVisible(false);        choose.invalidate();
             choose_contain.setVisible(false); choose_contain.invalidate();
             back_data.setVisible(false);     back_data.invalidate();

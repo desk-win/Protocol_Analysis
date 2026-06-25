@@ -82,6 +82,8 @@ protected:
     touchgfx::Unicode::UnicodeChar progressPctBuf[16];
     touchgfx::Callback<Data_screenView, const touchgfx::Box&, const touchgfx::ClickEvent&> progressClickCb;
     void onProgressClick(const touchgfx::Box& src, const touchgfx::ClickEvent& evt);
+    void applyWaveConfig();   /* 按当前配置(UART framing / SPI datasize / I2C/CAN 8bit)设 waveWidget 参数。
+                               * 回放模式用录制时 g_playback_cfg，否则用 live SHM_CONFIG */
     bool playbackUiShown;   /* 回放 UI 是否已显示（检测 mode 0↔1 切换 UI）*/
 };
 

@@ -39,6 +39,7 @@
 #include "lcd.h"
 #include "bsp_driver_sd.h"
 #include "shared_buf.h"
+#include "shared_config.h"   /* proto_config_t / SHM_CONFIG / HSEM_ID_CONFIG（USER CODE PV 用 proto_config_t，须在 PV 前 include）*/
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -94,6 +95,10 @@ volatile uint8_t  g_playback_file_idx = 0;
 volatile uint32_t g_playback_file_size = 0;
 volatile uint32_t g_playback_buf_start = 0;
 volatile uint8_t  g_playback_reload = 0;
+/* 录制配置 header（回放读出，data_screen 按录制时配置画波形 framing）*/
+volatile proto_config_t g_playback_cfg;           /* 回放读出的录制时全部协议配置 */
+volatile uint8_t  g_playback_cfg_valid = 0;       /* g_playback_cfg 是否有效(magic 匹配且读全) */
+volatile uint32_t g_playback_header_len = 0;      /* 当前回放文件 header 长度(0=老文件无 header，seek 要偏移) */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -106,7 +111,7 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#include "shared_config.h"   /* HSEM_ID_CONFIG */
+/* shared_config.h 已在 USER CODE Includes 区 include（PV 的 g_playback_cfg 用 proto_config_t）*/
 
 /* 协议配置就绪通知:CM7 UI 写完 SHM_CONFIG 后调用,Release HSEM 通知 CM4 重配外设。
  * TouchGFX Settings_ScreenView 通过 extern "C" 调用(C++ 不直接碰 HAL)。*/
