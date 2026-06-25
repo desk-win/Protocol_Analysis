@@ -47,9 +47,21 @@ void Data_screenView::setupScreen()
 
     /* 时序波形：宽 450（裁剪长度）+ 高 100（恢复），右侧 X500+ 留给按钮 */
     waveWidget.setPosition(50, 185, 450, 100);
-    /* 波形按 SHM_CONFIG UART 配置动态画（databits/parity/stopbits 算 bit 数，clamp 兜底首次乱值）*/
+    /* 波形按当前协议画：UART 带起始/校验/停止位(framed)，SPI/I2C/CAN 只画数据位 */
+    uint8_t wd_bits, wd_par, wd_stop;  bool wd_framed;
+    switch (SHM_CONFIG->active_proto) {
+        case 2:  /* SPI: datasize bit, 无 framing */
+            wd_bits = SHM_CONFIG->spi.datasize; wd_par = 0; wd_stop = 1; wd_framed = false; break;
+        case 3:  /* I2C */
+        case 4:  /* CAN: 字节流 8bit 无 framing */
+            wd_bits = 8; wd_par = 0; wd_stop = 1; wd_framed = false; break;
+        case 1:  /* UART: 完整 framing */
+        default:
+            wd_bits = SHM_CONFIG->uart.databits; wd_par = SHM_CONFIG->uart.parity;
+            wd_stop = SHM_CONFIG->uart.stopbits; wd_framed = true; break;
+    }
     waveWidget.setParams(6, 20, 70, touchgfx::Color::getColorFromRGB(0, 255, 0), touchgfx::Color::getColorFromRGB(0, 0, 0), 10,
-                         SHM_CONFIG->uart.databits, SHM_CONFIG->uart.parity, SHM_CONFIG->uart.stopbits);
+                         wd_bits, wd_par, wd_stop, wd_framed);
     add(waveWidget);
 
     /* "协议选择"按钮 toggle Container 显示/隐藏（Callback 成员在构造函数初始化）*/

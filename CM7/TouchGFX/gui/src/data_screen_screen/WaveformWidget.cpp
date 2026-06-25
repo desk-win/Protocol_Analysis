@@ -15,7 +15,7 @@ void WaveformWidget::setBytes(const uint8_t *bytes, uint16_t count)
 }
 
 void WaveformWidget::setParams(uint16_t bitWidth, int16_t highY, int16_t lowY, touchgfx::colortype color, touchgfx::colortype bgColor, uint16_t byteGap,
-                               uint8_t databits, uint8_t parity, uint8_t stopbits)
+                               uint8_t databits, uint8_t parity, uint8_t stopbits, bool framed)
 {
     bitWidth_ = bitWidth;
     highY_ = highY;
@@ -23,9 +23,10 @@ void WaveformWidget::setParams(uint16_t bitWidth, int16_t highY, int16_t lowY, t
     color_ = color;
     bgColor_ = bgColor;
     byteGap_ = byteGap;
-    databits_ = (databits >= 5 && databits <= 9) ? databits : 8;   /* clamp，超范围用默认 8 */
+    databits_ = (databits >= 4 && databits <= 9) ? databits : 8;   /* clamp，超范围用默认 8（SPI datasize 可 4）*/
     parity_   = (parity <= 2) ? parity : 0;
     stopbits_ = (stopbits >= 1 && stopbits <= 3) ? stopbits : 1;
+    framed_   = framed;
 }
 
 void WaveformWidget::draw(const touchgfx::Rect &invalidatedArea) const
@@ -50,12 +51,13 @@ void WaveformWidget::draw(const touchgfx::Rect &invalidatedArea) const
     int16_t x = absRect.x;
     int16_t prevY = absRect.y + lowY_;   /* 空闲态 = 低电平 */
 
-    /* 动态 bit 数：start(1) + databits + parity(0/1) + stopbits，按 SHM_CONFIG 配置画。
+    /* 动态 bit 数：framed_ 时 start(1) + databits + parity(0/1) + stopbits（UART 风格）；
+     * !framed_ 时只画 databits 个数据位（SPI/I2C/CAN 无 framing）。
      * bit 颜色：start 红 / data 绿(配置) / parity 黄 / stop 蓝 */
     const int stop_real  = (stopbits_ >= 2) ? 2 : 1;   /* 1→1, 2→2, 1.5(=3)→2 近似 */
     const int dataBits   = databits_;
-    const int parityBits = (parity_ != 0) ? 1 : 0;
-    const int nbits      = 1 + dataBits + parityBits + stop_real;
+    const int parityBits = (framed_ && (parity_ != 0)) ? 1 : 0;
+    const int nbits      = framed_ ? (1 + dataBits + parityBits + stop_real) : dataBits;
     const touchgfx::colortype startColor  = touchgfx::Color::getColorFromRGB(255, 0, 0);
     const touchgfx::colortype parityColor = touchgfx::Color::getColorFromRGB(255, 255, 0);
     const touchgfx::colortype stopColor   = touchgfx::Color::getColorFromRGB(0, 0, 255);
@@ -65,11 +67,11 @@ void WaveformWidget::draw(const touchgfx::Rect &invalidatedArea) const
         uint8_t byte = bytes_[b];
         int bits[16];
         int btype[16];   /* 0=start 1=data 2=parity 3=stop */
-        bits[0] = 0; btype[0] = 0;
-        int idx = 1, par = 0;
+        int idx = 0, par = 0;
+        if (framed_) { bits[0] = 0; btype[0] = 0; idx = 1; }
         for (int i = 0; i < dataBits; i++) { int d = (byte >> i) & 1; bits[idx] = d; btype[idx] = 1; par ^= d; idx++; }
         if (parityBits) { if (parity_ == 2) par ^= 1; bits[idx] = par; btype[idx] = 2; idx++; }
-        for (int i = 0; i < stop_real; i++) { bits[idx] = 1; btype[idx] = 3; idx++; }
+        if (framed_) { for (int i = 0; i < stop_real; i++) { bits[idx] = 1; btype[idx] = 3; idx++; } }
 
         for (int i = 0; i < nbits; i++)
         {

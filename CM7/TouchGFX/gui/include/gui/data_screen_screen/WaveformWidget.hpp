@@ -17,9 +17,10 @@ public:
     /* 设置要显示的最新字节（拷贝到内部缓冲）*/
     void setBytes(const uint8_t *bytes, uint16_t count);
 
-    /* 配置：每 bit 像素宽、高电平 Y、低电平 Y（widget 内坐标）、波形颜色、背景色、字节间隙 */
+    /* 配置：每 bit 像素宽、高电平 Y、低电平 Y（widget 内坐标）、波形颜色、背景色、字节间隙
+     * framed=true 画 UART 完整 framing(起始+数据+校验+停止)；framed=false 只画数据位（SPI/I2C/CAN）*/
     void setParams(uint16_t bitWidth, int16_t highY, int16_t lowY, touchgfx::colortype color, touchgfx::colortype bgColor, uint16_t byteGap,
-                   uint8_t databits = 8, uint8_t parity = 0, uint8_t stopbits = 1);
+                   uint8_t databits = 8, uint8_t parity = 0, uint8_t stopbits = 1, bool framed = true);
 
     virtual void draw(const touchgfx::Rect &invalidatedArea) const;
     virtual touchgfx::Rect getSolidRect() const;
@@ -37,6 +38,7 @@ private:
     uint8_t databits_;              /* 5-9（setParams clamp，超范围用 8）*/
     uint8_t parity_;                /* 0=None, 1=Even, 2=Odd */
     uint8_t stopbits_;              /* 1, 2, 3(=1.5，draw 画 2 bit 近似) */
+    bool    framed_;                /* true=UART framing(起/校/停), false=只画数据位 */
 };
 
 #endif /* WAVEFORM_WIDGET_HPP */

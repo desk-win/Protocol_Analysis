@@ -216,17 +216,17 @@ uint32_t spi_datasize_from_u8(uint8_t bits)
 
 /**
 *   @brief UI baudrate 档位 → prescaler（slave 不用；master 用）
-*   ⚠️ CM7 baud 标签按 12MHz 算，.ioc 标 SPI6Freq=120MHz，实际波特率可能差 10×（spec §8 待验证）
+*   SPI6=120MHz confirmed (HCLK 240/D3PPRE /2)，CM7 标签 = 120MHz /{256,128,64,32,16,8}
 */
 uint16_t spi_prescaler_from_baud(uint32_t baud)
 {
     switch (baud) {
-        case 187500:  return 64;
-        case 375000:  return 32;
-        case 750000:  return 16;
-        case 1500000: return 8;
-        case 3000000: return 4;
-        case 6000000: return 2;
+        case 468750:  return 256;
+        case 937500:  return 128;
+        case 1875000: return 64;
+        case 3750000: return 32;
+        case 7500000: return 16;
+        case 15000000:return 8;
         default:      return 64;
     }
 }

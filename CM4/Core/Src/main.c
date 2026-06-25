@@ -154,6 +154,9 @@ int main(void)
 
   /* DWT 初始化（I2C 协议分析用 Get_Sys_us 测时钟拉伸/帧间隔）*/
   My_DWT_Init();
+  /* SHM_CONFIG->i2c.own_address 默认值初始化（UI 不暴露此字段，固定 0x50）。
+   * 不初始化的话首字节是 SRAM 残留垃圾，首次 Apply 会把垃圾地址传给 My_I2C_Init。*/
+  SHM_CONFIG->i2c.own_address = I2C_DEFAULT_OWNADDR;
   /* I2C 初始化：默认从机模式（own_address=0x50），7bit 寻址，100kHz。
    * HAL_I2C_AddrCallback（在 my_i2c_check.c）自动收帧入 my_i2c_data。*/
   My_I2C_Init(MY_I2C_SLAVE, 7, 0x50, 0, 0, 100000);

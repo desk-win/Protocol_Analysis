@@ -21,7 +21,7 @@ static const char*    u_flow[4]  = {"None", "RTS", "CTS", "RTS/CTS"};
 static const char*    s_modeD[4] = {"0", "1", "2", "3"};
 static const uint8_t  s_data[5]  = {4, 5, 6, 7, 8};        /* v1 ≤8：BDMA byte 对齐限制（spec §8 #1）*/
 static const char*    s_roleD[2] = {"Slave", "Master"};
-static const uint32_t s_baud[6]  = {187500, 375000, 750000, 1500000, 3000000, 6000000};
+static const uint32_t s_baud[6]  = {468750, 937500, 1875000, 3750000, 7500000, 15000000};  /* SPI6=120MHz /{256,128,64,32,16,8} */
 static const char*    s_first[2] = {"MSB", "LSB"};
 /* I2C */
 static const uint32_t i_clk[3]   = {100000, 400000, 1000000};
@@ -219,10 +219,11 @@ void Settings_ScreenView::refreshAll()
             ROW(4, "%s First: %s",   s_first[sFirst]);
             ROW(5, "%s Role: %s",    s_roleD[sRole]);
             break;
-        case 2: /* I2C 2 参数 + row3-5 空 */
+        case 2: /* I2C: Clock + Addr位宽 + 从机地址(固定) */
             ROW(1, "%s Clock: %lu",  (unsigned long)i_clk[iClock]);
             ROW(2, "%s Addr: %s",    i_addrD[iAddr]);
-            ROWEMPTY(3); ROWEMPTY(4); ROWEMPTY(5);
+            ROW(3, "%s Slave: 0x%02X (fixed)", (unsigned)SHM_CONFIG->i2c.own_address);
+            ROWEMPTY(4); ROWEMPTY(5);
             break;
         case 3: /* CAN 2 参数 + row3-5 空 */
             ROW(1, "%s Baud: %lu",   (unsigned long)c_baud[cBaud]);
