@@ -16,19 +16,19 @@ static const uint8_t  u_data[3]  = {7, 8, 9};                 /* STM32 USART 只
 static const uint8_t  u_stop[2]  = {1, 2};                    /* 常规 USART 只 1/2（1.5 仅智能卡模式）*/
 static const char*    u_stopD[2] = {"1", "2"};
 static const char*    u_par[3]   = {"None", "Even", "Odd"};
-static const char*    u_flow[4]  = {"None", "RTS", "CTS", "RTS/CTS"};
+static const char*    u_flow[4]  = {"None", "RTS (req-send)", "CTS (clr-send)", "RTS/CTS (both)"};
 /* SPI */
-static const char*    s_modeD[4] = {"0", "1", "2", "3"};
+static const char*    s_modeD[4] = {"0 (idle L,1st edge)", "1 (idle L,2nd edge)", "2 (idle H,1st edge)", "3 (idle H,2nd edge)"};
 static const uint8_t  s_data[5]  = {4, 5, 6, 7, 8};        /* v1 ≤8：BDMA byte 对齐限制（spec §8 #1）*/
-static const char*    s_roleD[2] = {"Slave", "Master"};
+static const char*    s_roleD[2] = {"Slave (passive RX)", "Master (active TX)"};
 static const uint32_t s_baud[6]  = {468750, 937500, 1875000, 3750000, 7500000, 15000000};  /* SPI6=120MHz /{256,128,64,32,16,8} */
-static const char*    s_first[2] = {"MSB", "LSB"};
+static const char*    s_first[2] = {"MSB (high bit 1st)", "LSB (low bit 1st)"};
 /* I2C */
 static const uint32_t i_clk[3]   = {100000, 400000, 1000000};
 static const char*    i_addrD[2] = {"7-bit", "10-bit"};
 /* CAN */
 static const uint32_t c_baud[5]  = {50000, 125000, 250000, 500000, 1000000};
-static const char*    c_modeD[4] = {"Normal", "Loopback", "Silent", "LB+Silent"};
+static const char*    c_modeD[4] = {"Normal (TX+RX bus)", "Loopback (ext bus)", "Silent (RX only)", "LB+Silent (internal)"};
 static const char*    protoNm[4] = {"UART", "SPI", "I2C", "CAN"};
 
 Settings_ScreenView::Settings_ScreenView()
