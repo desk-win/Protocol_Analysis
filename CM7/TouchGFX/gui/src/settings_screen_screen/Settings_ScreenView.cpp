@@ -225,10 +225,16 @@ void Settings_ScreenView::refreshAll()
             ROW(3, "%s Slave: 0x%02X (fixed)", (unsigned)SHM_CONFIG->i2c.own_address);
             ROWEMPTY(4); ROWEMPTY(5);
             break;
-        case 3: /* CAN 2 参数 + row3-5 空 */
+        case 3: /* CAN: Baud + Mode + BRP(同 CM4 apply_can: FDCAN_CLK/(baud*16)) */
             ROW(1, "%s Baud: %lu",   (unsigned long)c_baud[cBaud]);
             ROW(2, "%s Mode: %s",    c_modeD[cMode]);
-            ROWEMPTY(3); ROWEMPTY(4); ROWEMPTY(5);
+            {   /* BRP 预览：和 CM4 apply_can 同公式同 clamp，让用户看到实际将应用的分频值 */
+                uint32_t can_brp = 240000000UL / (c_baud[cBaud] * 16UL);   /* FDCAN_KERNEL_CLK=240M(PLL1Q) */
+                if (can_brp < 1) can_brp = 1;
+                if (can_brp > 512) can_brp = 512;
+                ROW(3, "%s BRP: %lu (BS1/2/SJW=13/2/1)", (unsigned long)can_brp);
+            }
+            ROWEMPTY(4); ROWEMPTY(5);
             break;
     }
     #undef ROW
