@@ -302,9 +302,9 @@ static void apply_uart_config_from_shm(void)
   else if (u->flowcontrol == 3) flow = UART_HWCONTROL_RTS_CTS;
 
   if (UART_Param_Change(u->baudrate, wordlen, stopb, par, flow) == HAL_OK) {
-    uart1_printf("[CM4] UART reconfig OK: %lu baud, dbit=%u stop=%u par=%u\r\n",
+    uart1_printf("[CM4] UART reconfig OK: %lu baud, dbit=%u stop=%u par=%u flow=%u\r\n",
                  (unsigned long)u->baudrate, (unsigned)u->databits,
-                 (unsigned)u->stopbits, (unsigned)u->parity);
+                 (unsigned)u->stopbits, (unsigned)u->parity, (unsigned)u->flowcontrol);
   } else {
     uart1_printf("[CM4] UART reconfig FAIL\r\n");
   }
@@ -356,16 +356,19 @@ static void apply_i2c_config_from_shm(void)
 static void apply_spi_config_from_shm(void)
 {
   spi_config_t *s = &SHM_CONFIG->spi;
+  /* prescaler: master 按 baud 算，slave 不用（presc=0 标 N/A，slave 跟主机时钟）*/
+  uint16_t presc = (s->role == 1) ? spi_prescaler_from_baud(s->baudrate) : 0;
   hspi6.Init.DataSize = spi_datasize_from_u8(s->datasize);
   hspi6.Init.FirstBit = (s->firstbit) ? SPI_FIRSTBIT_LSB : SPI_FIRSTBIT_MSB;
   if (s->role == 1) {
-    My_SPI_Init(s->mode, MY_SPI_MASTER, 0, spi_prescaler_from_baud(s->baudrate), 0);
+    My_SPI_Init(s->mode, MY_SPI_MASTER, 0, presc, 0);
   } else {
     My_SPI_Init(s->mode, MY_SPI_SLAVE, 0, 64, 0);
   }
-  uart1_printf("[CM4] SPI reconfig OK: role=%s mode=%u ds=%u first=%u\r\n",
+  uart1_printf("[CM4] SPI reconfig OK: role=%s mode=%u ds=%u first=%u baud=%lu presc=%u\r\n",
                s->role ? "MASTER" : "SLAVE", (unsigned)s->mode,
-               (unsigned)s->datasize, (unsigned)s->firstbit);
+               (unsigned)s->datasize, (unsigned)s->firstbit,
+               (unsigned long)s->baudrate, (unsigned)presc);
 }
 /* USER CODE END 4 */
 
