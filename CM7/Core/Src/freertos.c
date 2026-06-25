@@ -221,11 +221,10 @@ void StartDefaultTask(void *argument)
   extern volatile uint8_t  g_playback_cfg_valid;
   extern volatile uint32_t g_playback_header_len;
   /* 文件名前缀分类：d_=数字信号(方波), a_=模拟信号(未来折线)。
-   * 每协议保留 PROTO_FILE_COUNT 个文件，轮转序号（d_uart_1.log, d_uart_2.log, ...）。
+   * 每协议保留 PROTO_FILE_COUNT 个文件，开录前 f_stat 挑最旧/空槽位写（不盲目轮转覆盖较新的好录制）。
    * 文件列表 f_opendir 按前缀判断类型，回放按类型选 widget。*/
   #define PROTO_FILE_COUNT 3   /* 每协议保留文件数（留余地，后续可改大）*/
   static const char *proto_names[4] = { "uart", "spi", "i2c", "can" };
-  static uint8_t proto_seq[4] = {0, 0, 0, 0};   /* 每协议当前序号（0..PROTO_FILE_COUNT-1 轮转覆盖）*/
   static char current_path[24] = "";            /* 当前记录文件路径（停止时 f_unlink 用）*/
 
   /* 共享内存已通(CM4→CM7 单向)。CM7 用本地 read_pos 消费 data，
@@ -366,10 +365,31 @@ void StartDefaultTask(void *argument)
             extern volatile uint8_t g_record_discard;
             if (g_record_discard) { g_record_discard = 0U; f_unlink(current_path); }  /* modal"不保存"切换：删当前 */
           }
-          uint8_t seq = proto_seq[req - 1U];
+          /* 挑最旧(或空)槽位写，避免盲目轮转覆盖较新的已保存录制。
+           * f_stat 扫 PROTO_FILE_COUNT 个槽位：空槽(FR_NO_FILE)优先 → 不破坏任何已存文件；
+           * 全满则覆盖 mtime 最旧的（真·保留最近 N 个）。f_stat DISK_ERR 重试 3 次（SD NAND 偶发）。*/
+          uint8_t pick = 0;
+          DWORD best_mtime = 0xFFFFFFFFUL;
+          for (uint8_t s = 0; s < PROTO_FILE_COUNT; s++)
+          {
+            char probe[24];
+            snprintf(probe, sizeof(probe), "0:d_%s_%u.log", proto_names[req - 1U], s + 1U);
+            FILINFO fno;
+            FRESULT st = FR_DISK_ERR;
+            for (int st_retry = 0; st_retry < 3; st_retry++) {
+              st = f_stat(probe, &fno);
+              if (st != FR_DISK_ERR) break;
+              osDelay(20);
+            }
+            if (st == FR_NO_FILE) { pick = s; break; }          /* 空槽 → 直接用 */
+            if (st == FR_OK) {                                    /* 已存在 → 比 mtime 记最旧 */
+              DWORD mt = ((DWORD)fno.fdate << 16) | (DWORD)fno.ftime;
+              if (mt < best_mtime) { best_mtime = mt; pick = s; }
+            }
+            /* st 仍 FR_DISK_ERR：保守当存在，不优先选（兜底 pick=0）*/
+          }
           snprintf(current_path, sizeof(current_path), "0:d_%s_%u.log",
-                   proto_names[req - 1U], seq + 1U);
-          proto_seq[req - 1U] = (uint8_t)((seq + 1U) % PROTO_FILE_COUNT);
+                   proto_names[req - 1U], pick + 1U);
           FRESULT fo = FR_DISK_ERR;
           for (int fo_retry = 0; fo_retry < 3; fo_retry++)
           {
