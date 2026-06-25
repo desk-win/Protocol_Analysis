@@ -270,12 +270,15 @@ void uart1_printf(char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    char buf[64];
+    char buf[128];
     int len = vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
     if (len > 0)
     {
-        HAL_UART_Transmit(&huart1, (uint8_t *)buf, len, 200);
+        /* vsnprintf 返回"应有长度"，超 buf 时实际只写了 sizeof(buf)-1 字节。
+         * 钳制 send_len 防止 HAL_UART_Transmit 读到 buf 外（乱码根因）。*/
+        int send_len = (len < (int)sizeof(buf)) ? len : (int)sizeof(buf) - 1;
+        HAL_UART_Transmit(&huart1, (uint8_t *)buf, send_len, 200);
     }
 }
 /* __io_putchar: newlib _write / libmetal 日志走这里，重定向到 USART1。
