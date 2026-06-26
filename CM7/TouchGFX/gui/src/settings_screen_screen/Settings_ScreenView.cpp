@@ -264,6 +264,8 @@ void Settings_ScreenView::applyConfig()
      * 配合 setupScreen 的 invalidate，实现 CM7↔CM4 config 一致。*/
     SCB_CleanDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);
     shm_config_notify();   /* __DSB + HAL_HSEM_Release(HSEM_ID_CONFIG) → CM4 中断读 */
+    extern volatile uint8_t g_config_dirty;
+    g_config_dirty = 1;    /* 持久化：defaultTask 见 flag → f_write config.bin 覆盖（不在 UI 线程直接写 SD）*/
     /* snap 更新为当前（已应用），避免同一次会话内重复弹窗 */
     snap.protoIdx = protoIdx;
     snap.uBaud = uBaud; snap.uData = uData; snap.uStop = uStop; snap.uPar = uPar; snap.uFlow = uFlow;

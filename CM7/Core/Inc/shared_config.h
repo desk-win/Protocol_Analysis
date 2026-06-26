@@ -82,4 +82,30 @@ typedef struct {
 #define CAN_DEFAULT_BAUDRATE    500000U
 #define CAN_DEFAULT_MODE        0U
 
+/* 配置持久化 config.bin = magic + proto_config_t。
+ * Apply 时覆盖写，上电 CM7 读 → HSEM 通知 CM4 按保存的配置重配。*/
+#define CFG_MAGIC  0x31474643U   /* "CFG1" LE；proto_config_t 结构改了升 "CFG2"，旧文件自动判失效 */
+
+/* SHM_CONFIG 填代码默认值（config.bin 缺失/损坏/版本不符时兜底；两核可调，CM7 boot 用）*/
+static inline void shm_config_set_defaults(void)
+{
+    SHM_CONFIG->active_proto        = 1U;  /* UART */
+    SHM_CONFIG->uart.baudrate       = UART_DEFAULT_BAUDRATE;
+    SHM_CONFIG->uart.databits       = UART_DEFAULT_DATABITS;
+    SHM_CONFIG->uart.stopbits       = UART_DEFAULT_STOPBITS;
+    SHM_CONFIG->uart.parity         = UART_DEFAULT_PARITY;
+    SHM_CONFIG->uart.flowcontrol    = UART_DEFAULT_FLOWCTRL;
+    SHM_CONFIG->spi.role            = SPI_DEFAULT_ROLE;
+    SHM_CONFIG->spi.cs_polarity     = SPI_DEFAULT_CS_POL;
+    SHM_CONFIG->spi.mode            = SPI_DEFAULT_MODE;
+    SHM_CONFIG->spi.datasize        = SPI_DEFAULT_DATASIZE;
+    SHM_CONFIG->spi.baudrate        = SPI_DEFAULT_BAUDRATE;
+    SHM_CONFIG->spi.firstbit        = SPI_DEFAULT_FIRSTBIT;
+    SHM_CONFIG->i2c.clock_speed     = I2C_DEFAULT_CLOCK;
+    SHM_CONFIG->i2c.addressing      = I2C_DEFAULT_ADDRMODE;
+    SHM_CONFIG->i2c.own_address     = I2C_DEFAULT_OWNADDR;
+    SHM_CONFIG->can.baudrate        = CAN_DEFAULT_BAUDRATE;
+    SHM_CONFIG->can.mode            = CAN_DEFAULT_MODE;
+}
+
 #endif /* __SHARED_CONFIG_H */

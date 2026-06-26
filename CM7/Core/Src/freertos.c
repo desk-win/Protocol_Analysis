@@ -147,6 +147,24 @@ void MX_FREERTOS_Init(void) {
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
+
+extern void shm_config_notify(void);   /* main.c 定义：Take+Release HSEM_ID_1 通知 CM4 重配 */
+
+/* config.bin 读写用 FIL（static 防栈深覆盖，同 sd_file 理由 —— FatFs f_open/f_write 栈深会毁栈上 FIL）*/
+static FIL cfg_file;
+/* 持久化 SHM_CONFIG → config.bin（覆盖写）。SD 专属，仅 defaultTask 调（UI 通过 g_config_dirty 触发，不直接写）。*/
+static void write_config_bin(void)
+{
+  if (f_open(&cfg_file, "0:config.bin", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK) {
+    UINT bw = 0;
+    uint32_t magic = CFG_MAGIC;
+    SCB_InvalidateDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);  /* 读最新 CM7/UI 写的值 */
+    f_write(&cfg_file, &magic, 4, &bw);
+    f_write(&cfg_file, (const void*)SHM_CONFIG, sizeof(proto_config_t), &bw);
+    f_close(&cfg_file);
+  }
+}
+
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
@@ -214,6 +232,25 @@ void StartDefaultTask(void *argument)
     }
   }
 
+  /* 配置持久化：上电一次性读 config.bin → SHM_CONFIG（缺失/损坏→defaults），HSEM 通知 CM4 按保存的配置重配。
+   * 复用 HSEM_ID_1 配置 IPC，CM4 零改动。先铺 defaults 兜底（防首次开机/SD 没挂时 SHM_CONFIG 是随机值）。*/
+  shm_config_set_defaults();
+  if (g_sd_status == 4U)
+  {
+    UINT br = 0; uint32_t magic = 0;
+    if (f_open(&cfg_file, "0:config.bin", FA_READ) == FR_OK) {
+      if (!(f_read(&cfg_file, &magic, 4, &br) == FR_OK && br == 4 && magic == CFG_MAGIC
+            && f_read(&cfg_file, (void*)SHM_CONFIG, sizeof(proto_config_t), &br) == FR_OK
+            && br == sizeof(proto_config_t)
+            && SHM_CONFIG->active_proto >= 1U && SHM_CONFIG->active_proto <= 4U)) {
+        shm_config_set_defaults();   /* magic 不符/读不全/active_proto 非法 → 回默认 */
+      }
+      f_close(&cfg_file);
+    }
+  }
+  SCB_CleanDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);
+  shm_config_notify();   /* HSEM_ID_1 → CM4 apply 读到的配置（和 Settings Apply 同路）*/
+
   /* 4 协议按钮记录控制（方案A：按钮控制 CM7 记录，CM4 持续发）*/
   extern volatile uint8_t g_record_req;     /* 按钮请求：0=无, 1=UART, 2=SPI, 3=I2C, 4=CAN */
   extern volatile uint8_t g_record_active;  /* 当前记录：0=没记, 1-4=协议 */
@@ -231,6 +268,12 @@ void StartDefaultTask(void *argument)
    * 不写共享 tail（CM7→CM4 方向不通）。字节同时累积到 SD 缓冲。*/
   for(;;)
   {
+    /* 配置持久化：UI Apply 设 g_config_dirty → 这里 f_write config.bin（仅 !sd_ready 防和录制 sd_file 抢 FatFs）*/
+    extern volatile uint8_t g_config_dirty;
+    if (g_config_dirty && g_sd_status == 4U && !sd_ready) {
+      g_config_dirty = 0;
+      write_config_bin();
+    }
     /* 文件列表服务（defaultTask 唯一 SD 访问者）：仅没记录时(sd_ready=0)扫描/删除，
      * 避免和 sd_file 的 FatFs 共享状态冲突。UI 在 SD_Test_Screen 设 g_file_refresh/g_file_delete。*/
     if (g_sd_status == 4U && !sd_ready)
