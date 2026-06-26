@@ -33,6 +33,7 @@ protected:
     void refreshAll();   /* 只更新 UI 显示，不写 SHM_CONFIG */
     void applyConfig();  /* 用户确认后：写 SHM_CONFIG 全字段 + shm_config_notify() 通知 CM4 */
     bool hasChanges();   /* 对比 snap，本地 idx 有没有被用户改过 */
+    void loadConfigFromShm();  /* 从 SHM_CONFIG 读全部 idx + 更新 snap（setupScreen 和 config-loaded 自动刷新共用）*/
     uint8_t selRow;       /* 0=协议, 1-5=参数 */
     uint8_t protoIdx;     /* 0=UART, 1=SPI, 2=I2C, 3=CAN */
     /* UART 参数 idx */

@@ -58,42 +58,7 @@ void Settings_ScreenView::setupScreen()
     box1.invalidate();
 
     selRow = 0;
-    /* invalidate DCache：SHM_CONFIG 在 SRAM1，CM7 DCache 可能缓存旧值（MPU non-cacheable 历史未完全生效，
-     * 参见 data_screen 的 SCB_InvalidateDCache_by_Addr）。不 invalidate → Apply 后再进 Settings 显示旧配置。*/
-    SCB_InvalidateDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);
-    protoIdx = (SHM_CONFIG->active_proto >= 1 && SHM_CONFIG->active_proto <= 4) ? (SHM_CONFIG->active_proto - 1) : 0;
-    /* UART idx 从 SHM_CONFIG 映射（其他协议用默认 idx，首次乱值不映射）*/
-    uint32_t b = SHM_CONFIG->uart.baudrate;
-    uBaud = 4; for (uint8_t i = 0; i < 8; i++) if (u_baud[i] == b) { uBaud = i; break; }
-    uint8_t d = SHM_CONFIG->uart.databits;
-    uData = 1; for (uint8_t i = 0; i < 3; i++) if (u_data[i] == d) { uData = i; break; }
-    uint8_t s = SHM_CONFIG->uart.stopbits;
-    uStop = 0; for (uint8_t i = 0; i < 2; i++) if (u_stop[i] == s) { uStop = i; break; }
-    uPar  = (SHM_CONFIG->uart.parity < 3)      ? SHM_CONFIG->uart.parity      : 0;
-    uFlow = (SHM_CONFIG->uart.flowcontrol < 4) ? SHM_CONFIG->uart.flowcontrol : 0;
-    /* SPI idx 从 SHM_CONFIG 映射（再进 Settings 显示保存值，不只 UART）*/
-    { uint32_t sb = SHM_CONFIG->spi.baudrate;
-      sBaud = 3; for (uint8_t i = 0; i < 6; i++) if (s_baud[i] == sb) { sBaud = i; break; } }
-    { uint8_t sd = SHM_CONFIG->spi.datasize;
-      sData = 4; for (uint8_t i = 0; i < 5; i++) if (s_data[i] == sd) { sData = i; break; } }
-    sRole = (SHM_CONFIG->spi.role < 2) ? SHM_CONFIG->spi.role : 0;
-    sMode  = (SHM_CONFIG->spi.mode < 4)     ? SHM_CONFIG->spi.mode     : 0;
-    sFirst = (SHM_CONFIG->spi.firstbit < 2) ? SHM_CONFIG->spi.firstbit : 0;
-    /* I2C idx 从 SHM_CONFIG 映射 */
-    { uint32_t ic = SHM_CONFIG->i2c.clock_speed;
-      iClock = 0; for (uint8_t i = 0; i < 3; i++) if (i_clk[i] == ic) { iClock = i; break; } }
-    iAddr = (SHM_CONFIG->i2c.addressing < 2) ? SHM_CONFIG->i2c.addressing : 0;
-    /* CAN idx 从 SHM_CONFIG 映射 */
-    { uint32_t cb = SHM_CONFIG->can.baudrate;
-      cBaud = 3; for (uint8_t i = 0; i < 5; i++) if (c_baud[i] == cb) { cBaud = i; break; } }
-    cMode = (SHM_CONFIG->can.mode < 4) ? SHM_CONFIG->can.mode : 0;
-
-    /* snap：保存进屏幕时的所有 idx，onBackClick 对比用（refreshAll 不写 SHM_CONFIG，cancel 自然回退）*/
-    snap.protoIdx = protoIdx;
-    snap.uBaud = uBaud; snap.uData = uData; snap.uStop = uStop; snap.uPar = uPar; snap.uFlow = uFlow;
-    snap.sMode = sMode; snap.sData = sData; snap.sBaud = sBaud; snap.sFirst = sFirst; snap.sRole = sRole;
-    snap.iClock = iClock; snap.iAddr = iAddr;
-    snap.cBaud = cBaud; snap.cMode = cMode;
+    loadConfigFromShm();   /* 读 SHM_CONFIG 全部 idx + snap（invalidate 在里面；和 config-loaded 自动刷新共用）*/
 
     const touchgfx::colortype white = touchgfx::Color::getColorFromRGB(255, 255, 255);
     /* 行 0 协议 + 行 1-5 参数 */
@@ -168,9 +133,52 @@ void Settings_ScreenView::tearDownScreen()
 }
 
 /* modal 结果倒计时：Applied!/Discarded! 显示 ~1.5s 后 hide + 回主屏 */
+/* 从 SHM_CONFIG 读全部协议 idx 映射 + 更新 snap。setupScreen(进屏) 和 config-loaded 自动刷新 共用。
+ * invalidate DCache：SHM_CONFIG 在 SRAM1，CM7 DCache 可能缓存旧值（MPU non-cacheable 历史未完全生效）。*/
+void Settings_ScreenView::loadConfigFromShm()
+{
+    SCB_InvalidateDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);
+    protoIdx = (SHM_CONFIG->active_proto >= 1 && SHM_CONFIG->active_proto <= 4) ? (SHM_CONFIG->active_proto - 1) : 0;
+    uint32_t b = SHM_CONFIG->uart.baudrate;
+    uBaud = 4; for (uint8_t i = 0; i < 8; i++) if (u_baud[i] == b) { uBaud = i; break; }
+    uint8_t d = SHM_CONFIG->uart.databits;
+    uData = 1; for (uint8_t i = 0; i < 3; i++) if (u_data[i] == d) { uData = i; break; }
+    uint8_t s = SHM_CONFIG->uart.stopbits;
+    uStop = 0; for (uint8_t i = 0; i < 2; i++) if (u_stop[i] == s) { uStop = i; break; }
+    uPar  = (SHM_CONFIG->uart.parity < 3)      ? SHM_CONFIG->uart.parity      : 0;
+    uFlow = (SHM_CONFIG->uart.flowcontrol < 4) ? SHM_CONFIG->uart.flowcontrol : 0;
+    { uint32_t sb = SHM_CONFIG->spi.baudrate;
+      sBaud = 3; for (uint8_t i = 0; i < 6; i++) if (s_baud[i] == sb) { sBaud = i; break; } }
+    { uint8_t sd = SHM_CONFIG->spi.datasize;
+      sData = 4; for (uint8_t i = 0; i < 5; i++) if (s_data[i] == sd) { sData = i; break; } }
+    sRole = (SHM_CONFIG->spi.role < 2) ? SHM_CONFIG->spi.role : 0;
+    sMode  = (SHM_CONFIG->spi.mode < 4)     ? SHM_CONFIG->spi.mode     : 0;
+    sFirst = (SHM_CONFIG->spi.firstbit < 2) ? SHM_CONFIG->spi.firstbit : 0;
+    { uint32_t ic = SHM_CONFIG->i2c.clock_speed;
+      iClock = 0; for (uint8_t i = 0; i < 3; i++) if (i_clk[i] == ic) { iClock = i; break; } }
+    iAddr = (SHM_CONFIG->i2c.addressing < 2) ? SHM_CONFIG->i2c.addressing : 0;
+    { uint32_t cb = SHM_CONFIG->can.baudrate;
+      cBaud = 3; for (uint8_t i = 0; i < 5; i++) if (c_baud[i] == cb) { cBaud = i; break; } }
+    cMode = (SHM_CONFIG->can.mode < 4) ? SHM_CONFIG->can.mode : 0;
+    snap.protoIdx = protoIdx;
+    snap.uBaud = uBaud; snap.uData = uData; snap.uStop = uStop; snap.uPar = uPar; snap.uFlow = uFlow;
+    snap.sMode = sMode; snap.sData = sData; snap.sBaud = sBaud; snap.sFirst = sFirst; snap.sRole = sRole;
+    snap.iClock = iClock; snap.iAddr = iAddr;
+    snap.cBaud = cBaud; snap.cMode = cMode;
+}
+
 void Settings_ScreenView::handleTickEvent()
 {
     Settings_ScreenViewBase::handleTickEvent();
+
+    /* 上电 config-load 完成(0→1)→ 重读 SHM_CONFIG 刷新（进屏太快看到默认值时自动修正成保存值）*/
+    extern volatile uint8_t g_config_loaded;
+    static uint8_t prev_cfg_loaded = 0;
+    if (g_config_loaded && !prev_cfg_loaded) {
+        prev_cfg_loaded = 1;
+        loadConfigFromShm();
+        refreshAll();
+    }
 
     if (modalState == MODAL_RESULT)
     {
