@@ -100,6 +100,7 @@ volatile proto_config_t g_playback_cfg;           /* 回放读出的录制时全
 volatile uint8_t  g_playback_cfg_valid = 0;       /* g_playback_cfg 是否有效(magic 匹配且读全) */
 volatile uint32_t g_playback_header_len = 0;      /* 当前回放文件 header 长度(0=老文件无 header，seek 要偏移) */
 volatile uint8_t  g_config_dirty = 0;     /* UI Apply 置 1 → defaultTask f_write config.bin 持久化（不直接写，避免和 sd_file 抢 FatFs）*/
+volatile uint8_t  g_config_loaded = 0;    /* 上电 config-load 完成置 1（一次）。屏幕 tick 检测 0→1 跳变 → 重读 SHM_CONFIG 刷新 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/

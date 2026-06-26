@@ -243,6 +243,8 @@ void StartDefaultTask(void *argument)
   }
   SCB_CleanDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);
   shm_config_notify();   /* HSEM_ID_1 → CM4 apply 读到的配置（和 Settings Apply 同路）*/
+  extern volatile uint8_t g_config_loaded;
+  g_config_loaded = 1;   /* 通知屏幕 tick：配置已加载，重读 SHM_CONFIG 刷新显示（治"开机先显示默认"）*/
 
   /* 4 协议按钮记录控制（方案A：按钮控制 CM7 记录，CM4 持续发）*/
   extern volatile uint8_t g_record_req;     /* 按钮请求：0=无, 1=UART, 2=SPI, 3=I2C, 4=CAN */

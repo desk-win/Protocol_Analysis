@@ -209,6 +209,15 @@ void Data_screenView::handleTickEvent()
 {
     Data_screenViewBase::handleTickEvent();
 
+    /* 上电 config-load 完成(0→1)→ 按加载的配置重设波形 framing（治"开机先显示默认，要重进屏才对"）*/
+    extern volatile uint8_t g_config_loaded;
+    static uint8_t prev_cfg_loaded = 0;
+    if (g_config_loaded && !prev_cfg_loaded) {
+        prev_cfg_loaded = 1;
+        applyWaveConfig();          /* 重读 SHM_CONFIG（此时已是保存值）→ 按 active_proto 设 waveWidget */
+        waveWidget.invalidate();
+    }
+
     extern volatile uint32_t g_shm_rx_count;
     extern volatile uint32_t g_sd_written;
     extern volatile uint32_t g_sd_status;     /* SD 状态 4=就绪 */
