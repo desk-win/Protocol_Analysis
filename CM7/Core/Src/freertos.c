@@ -220,28 +220,8 @@ void StartDefaultTask(void *argument)
     if (fr != FR_OK) g_sd_status = 2U;
     else
     {
-      /* 算可用空间。配合 ffconf.h _FS_NOFSINFO=3（f_getfree 强制扫描 FAT，不信任 FSINFO）。
-       * SD NAND FSINFO 损坏会让 f_getfree 返回 0 假满（但 f_open 能分配簇证伪）→ 扫描得真实值。
-       * 重试 3 次仍返回 0/失败 → 用 物理容量−已写 估算兜底。*/
-      extern uint32_t g_sd_free_kb;
-      FATFS *fs;
-      DWORD fre_clust;
-      FRESULT gf = FR_DISK_ERR;
-      for (int gf_retry = 0; gf_retry < 3; gf_retry++)
-      {
-        gf = f_getfree("0:", &fre_clust, &fs);
-        if (gf == FR_OK && fre_clust > 0) break;
-        osDelay(200);
-      }
-      if (gf == FR_OK && fre_clust > 0)
-        g_sd_free_kb = (uint32_t)(fre_clust * fs->csize / 2U);
-      else
-      {
-        uint32_t total_kb   = g_sd_card_info.LogBlockNbr / 2U;
-        uint32_t written_kb = g_sd_written / 1024U;
-        g_sd_free_kb = (total_kb > written_kb) ? (total_kb - written_kb) : 0U;
-      }
-      g_sd_status = 4U;  /* mount 成功 = SD 可用（按钮记录依赖此状态）*/
+      g_sd_status = 4U;  /* mount 成功 = SD 可用。
+                          * f_getfree(扫FAT算剩余空间,慢)挪到 g_file_refresh 懒算，开机不挡 config-load。*/
     }
   }
 
@@ -295,6 +275,22 @@ void StartDefaultTask(void *argument)
       {
         g_file_refresh = 0;
         g_file_count = 0;
+        /* 顺带算剩余空间（从 boot 挪这懒算）：f_getfree 扫 FAT（_FS_NOFSINFO=3 不信 FSINFO）。
+         * SD NAND FSINFO 偶发损坏假满 → 扫描真实值；3 次失败用 物理容量−已写 兜底。*/
+        extern uint32_t g_sd_free_kb;
+        extern HAL_SD_CardInfoTypeDef g_sd_card_info;
+        FATFS *fs; DWORD fre_clust; FRESULT gf = FR_DISK_ERR;
+        for (int gf_r = 0; gf_r < 3; gf_r++) {
+          gf = f_getfree("0:", &fre_clust, &fs);
+          if (gf == FR_OK && fre_clust > 0) break;
+          osDelay(50);
+        }
+        if (gf == FR_OK && fre_clust > 0) g_sd_free_kb = (uint32_t)(fre_clust * fs->csize / 2U);
+        else {
+          uint32_t total_kb = g_sd_card_info.LogBlockNbr / 2U;
+          uint32_t written_kb = g_sd_written / 1024U;
+          g_sd_free_kb = (total_kb > written_kb) ? (total_kb - written_kb) : 0U;
+        }
         DIR dir;
         FILINFO fno;
         /* f_opendir 重试 3 次（SD NAND 偶发 DISK_ERR，和 f_getfree/f_open 同特性，
