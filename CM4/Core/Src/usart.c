@@ -261,6 +261,32 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
+#include <stdio.h>
+#include <stdarg.h>
 
+/* USART1 调试输出（电脑经 USB转串口 PA9/PA10 查看）。
+ * vsnprintf + HAL 阻塞发送，不依赖 newlib _write，跨工具链可靠。 */
+void uart1_printf(char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[128];
+    int len = vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    if (len > 0)
+    {
+        /* vsnprintf 返回"应有长度"，超 buf 时实际只写了 sizeof(buf)-1 字节。
+         * 钳制 send_len 防止 HAL_UART_Transmit 读到 buf 外（乱码根因）。*/
+        int send_len = (len < (int)sizeof(buf)) ? len : (int)sizeof(buf) - 1;
+        HAL_UART_Transmit(&huart1, (uint8_t *)buf, send_len, 200);
+    }
+}
+/* __io_putchar: newlib _write / libmetal 日志走这里，重定向到 USART1。
+ * syscalls.c 的 _write 调 weak __io_putchar，不实现的话 metal_init 会卡死。 */
+int __io_putchar(int ch)
+{
+    HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 100);
+    return ch;
+}
 /* USER CODE END 1 */
 

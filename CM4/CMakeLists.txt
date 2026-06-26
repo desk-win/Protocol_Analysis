@@ -68,7 +68,6 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/my_can_check.c
     Core/Src/my_dwt_count.c
     Core/Src/adc_cpld.c
-    Core/Src/my_adc_try.c
 )
 
 # Link directories setup
@@ -92,7 +91,7 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
 # Validate that STM32CubeMX code is compatible with C standard
 if((CMAKE_C_STANDARD EQUAL 90) OR (CMAKE_C_STANDARD EQUAL 99))
-    message(ERROR "Generated code requires C11 or higher")
+    message(FATAL_ERROR "Generated code requires C11 or higher")
 endif()
 
 

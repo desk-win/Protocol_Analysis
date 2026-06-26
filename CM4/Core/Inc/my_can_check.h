@@ -95,6 +95,8 @@ typedef struct {
 uint8_t CAN_RangeBuffer_Write(Can_Range_Buffer *rangebuffer, Can_Message_Struct *rx_mes);
 uint8_t CAN_RangeBuffer_Read(Can_Message_Struct *rx_mes, uint8_t len);
 void CAN_Handler_Start(void);
+uint32_t Switch_Len_TO_DLC(uint8_t len);
+uint8_t Switch_DLC_TO_Len(uint32_t DLC);
 HAL_StatusTypeDef CAN_Param_Change(uint32_t baud, uint32_t userBRP, uint32_t userBS1, uint32_t userBS2,
                                     uint32_t userSJW, uint32_t mode, FunctionalState autosend);
 void My_CAN_Send_Single_Init(uint32_t id, Can_ID_Type idtype, Can_Frame_Type frametype, uint8_t dlc);

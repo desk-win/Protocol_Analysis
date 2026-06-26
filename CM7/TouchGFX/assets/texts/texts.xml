@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextDatabase xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="texts.xsd" Version="4.26.1">
+  <Languages>
+    <Language Id="GB" />
+  </Languages>
+  <Texts>
+    <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_C3PG" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">CAN</Translation>
+      </Text>
+      <Text Id="__SingleUse_X2PP" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">设置</Translation>
+      </Text>
+      <Text Id="__SingleUse_X6ZG" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">SPI</Translation>
+      </Text>
+      <Text Id="__SingleUse_ZE2H" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">I2C</Translation>
+      </Text>
+      <Text Id="__SingleUse_F2LS" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">UART</Translation>
+      </Text>
+      <Text Id="back_setting" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">返回主菜单</Translation>
+      </Text>
+      <Text Id="__SingleUse_O8IC" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">协议选择</Translation>
+      </Text>
+      <Text Id="__SingleUse_T387" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">&lt;&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_3AQV" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">系统设置</Translation>
+      </Text>
+      <Text Id="__SingleUse_F8G5" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">SD测试</Translation>
+      </Text>
+      <Text Id="__SingleUse_EOCW" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">数据采集</Translation>
+      </Text>
+      <Text Id="__SingleUse_U5RV" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">Let's go guy</Translation>
+      </Text>
+      <Text Id="__SingleUse_QBZV" Alignment="Right" TypographyId="Default">
+        <Translation Language="GB">你好，世界</Translation>
+      </Text>
+    </TextGroup>
+  </Texts>
+  <Typographies>
+    <Typography Id="Default" Font="FZSTK.TTF" Size="28" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacterRanges="0x20-0x7E" />
+    <Typography Id="Large" Font="verdana.ttf" Size="40" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" />
+    <Typography Id="Small" Font="verdana.ttf" Size="10" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" />
+    <Typography Id="Typography1" Font="verdana.ttf" Size="20" Bpp="4" IsVector="no" Direction="RTL" FallbackCharacter="?" />
+  </Typographies>
+</TextDatabase>

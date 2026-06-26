@@ -12,7 +12,7 @@ include(ExternalProject)
 set(CMAKE_CXX_COMPILER_FORCED "true")
 
 # Set the project name
-set(CMAKE_PROJECT_NAME stm32h747_bbb)
+set(CMAKE_PROJECT_NAME qiansai)
 
 # Core project settings
 project(${CMAKE_PROJECT_NAME})

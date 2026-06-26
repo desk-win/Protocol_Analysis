@@ -31,7 +31,7 @@
 
 /* USER CODE END Includes */
 
-extern SDRAM_HandleTypeDef hsdram1;
+extern SDRAM_HandleTypeDef hsdram2;
 
 /* USER CODE BEGIN Private defines */
 
@@ -42,7 +42,8 @@ void HAL_SDRAM_MspInit(SDRAM_HandleTypeDef* hsdram);
 void HAL_SDRAM_MspDeInit(SDRAM_HandleTypeDef* hsdram);
 
 /* USER CODE BEGIN Prototypes */
-
+void sdram_init(void);
+void sdram_initialization_sequence(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

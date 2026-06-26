@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(ls -la \"c:/Users/admin/AppData/Local/Temp/\" | grep -i \"WKS43\\\\|GT1151\\\\|lcd\\\\|c6fedfd0\" 2>/dev/null || echo \"Not found in temp\")",
+      "Read(//c/Users/admin/AppData/Local/Temp/**)",
+      "Bash(python -c \"import PyPDF2; print\\('PyPDF2 available'\\)\")",
+      "Bash(python -c \"import pdfplumber; print\\('pdfplumber available'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -c ' *)",
+      "Bash(cmake --build CM7/build)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -s --proxy http://127.0.0.1:7897 https://github.com -o /dev/null -w \"%{http_code}\")",
+      "Bash(netstat -ano)",
+      "Bash(mkdir -p \"d:/CubeMx/CubeMx_project/Test1/CM7/Core/Inc\" \"d:/CubeMx/CubeMx_project/Test1/CM7/Core/Src\" \"d:/CubeMx/CubeMx_project/Test1/CM7/Core/Startup\" \"d:/CubeMx/CubeMx_project/Test1/CM7/Core/Hardware\" \"d:/CubeMx/CubeMx_project/Test1/CM4/Core/Inc\" \"d:/CubeMx/CubeMx_project/Test1/CM4/Core/Src\" \"d:/CubeMx/CubeMx_project/Test1/CM4/Core/Startup\" \"d:/CubeMx/CubeMx_project/Test1/Common/Src\")",
+      "Bash(cp \"d:/CubeMx/CubeMx_project/qiansai/gcc-arm-none-eabi.cmake\" \"d:/CubeMx/CubeMx_project/qiansai/starm-clang.cmake\" \"d:/CubeMx/CubeMx_project/qiansai/newlib_lock_glue.c\" \"d:/CubeMx/CubeMx_project/qiansai/stm32_lock.h\" \"d:/CubeMx/CubeMx_project/qiansai/CMakePresets.json\" \"d:/CubeMx/CubeMx_project/Test1/\")",
+      "Bash(cmake --version)",
+      "Bash(cmake --preset=Debug)",
+      "Bash(cmake --build Debug)",
+      "Bash(cmake --build build --preset=Debug)",
+      "Bash(cmake --build build/Debug)",
+      "Bash(cmake --build build/Debug --clean-first)",
+      "Bash(find \"d:/CubeMx/CubeMx_project/\" -maxdepth 1 -type d | sort)",
+      "Read(//d/CubeMx/CubeMx_project/**)"
+    ],
+    "additionalDirectories": [
+      "d:\\CubeMx\\CubeMx_project\\Test1\\CM7\\Core",
+      "d:\\CubeMx\\CubeMx_project\\Test1"
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true
+  }
+}

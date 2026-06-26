@@ -22,11 +22,11 @@
 #include "fmc.h"
 
 /* USER CODE BEGIN 0 */
-
-
+#include "sdram_util.h"
+#include "delay.h"
 /* USER CODE END 0 */
 
-SDRAM_HandleTypeDef hsdram1;
+SDRAM_HandleTypeDef hsdram2;
 
 /* FMC initialization function */
 void MX_FMC_Init(void)
@@ -41,36 +41,48 @@ void MX_FMC_Init(void)
 
   /* USER CODE END FMC_Init 1 */
 
-  /** Perform the SDRAM1 memory initialization sequence
+  /** Perform the SDRAM2 memory initialization sequence
   */
-  hsdram1.Instance = FMC_SDRAM_DEVICE;
-  /* hsdram1.Init */
-  hsdram1.Init.SDBank = FMC_SDRAM_BANK2;
-  hsdram1.Init.ColumnBitsNumber = FMC_SDRAM_COLUMN_BITS_NUM_9;
-  hsdram1.Init.RowBitsNumber = FMC_SDRAM_ROW_BITS_NUM_12;
-  hsdram1.Init.MemoryDataWidth = FMC_SDRAM_MEM_BUS_WIDTH_32;
-  hsdram1.Init.InternalBankNumber = FMC_SDRAM_INTERN_BANKS_NUM_4;
-  hsdram1.Init.CASLatency = FMC_SDRAM_CAS_LATENCY_3;
-  hsdram1.Init.WriteProtection = FMC_SDRAM_WRITE_PROTECTION_DISABLE;
-  hsdram1.Init.SDClockPeriod = FMC_SDRAM_CLOCK_PERIOD_2;
-  hsdram1.Init.ReadBurst = FMC_SDRAM_RBURST_ENABLE;
-  hsdram1.Init.ReadPipeDelay = FMC_SDRAM_RPIPE_DELAY_1;
+  hsdram2.Instance = FMC_SDRAM_DEVICE;
+  /* hsdram2.Init */
+  hsdram2.Init.SDBank = FMC_SDRAM_BANK2;
+  hsdram2.Init.ColumnBitsNumber = FMC_SDRAM_COLUMN_BITS_NUM_9;
+  hsdram2.Init.RowBitsNumber = FMC_SDRAM_ROW_BITS_NUM_12;
+  hsdram2.Init.MemoryDataWidth = FMC_SDRAM_MEM_BUS_WIDTH_32;
+  hsdram2.Init.InternalBankNumber = FMC_SDRAM_INTERN_BANKS_NUM_4;
+  hsdram2.Init.CASLatency = FMC_SDRAM_CAS_LATENCY_2;
+  hsdram2.Init.WriteProtection = FMC_SDRAM_WRITE_PROTECTION_DISABLE;
+  hsdram2.Init.SDClockPeriod = FMC_SDRAM_CLOCK_PERIOD_2;
+  hsdram2.Init.ReadBurst = FMC_SDRAM_RBURST_ENABLE;
+  hsdram2.Init.ReadPipeDelay = FMC_SDRAM_RPIPE_DELAY_1;
   /* SdramTiming */
   SdramTiming.LoadToActiveDelay = 2;
-  SdramTiming.ExitSelfRefreshDelay = 7;
-  SdramTiming.SelfRefreshTime = 5;
-  SdramTiming.RowCycleDelay = 7;
+  SdramTiming.ExitSelfRefreshDelay = 8;
+  SdramTiming.SelfRefreshTime = 6;
+  SdramTiming.RowCycleDelay = 8;
   SdramTiming.WriteRecoveryTime = 3;
-  SdramTiming.RPDelay = 2;
-  SdramTiming.RCDDelay = 2;
+  SdramTiming.RPDelay = 3;
+  SdramTiming.RCDDelay = 3;
 
-  if (HAL_SDRAM_Init(&hsdram1, &SdramTiming) != HAL_OK)
+  if (HAL_SDRAM_Init(&hsdram2, &SdramTiming) != HAL_OK)
   {
     Error_Handler( );
   }
 
   /* USER CODE BEGIN FMC_Init 2 */
+  sdram_send_cmd(1, FMC_SDRAM_CMD_CLK_ENABLE, 1, 0);
+  delay_us(500);
+  sdram_send_cmd(1, FMC_SDRAM_CMD_PALL, 1, 0);
+  sdram_send_cmd(1, FMC_SDRAM_CMD_AUTOREFRESH_MODE, 8, 0);
 
+  uint32_t temp = SDRAM_MODEREG_BURST_LENGTH_1 |
+                  SDRAM_MODEREG_BURST_TYPE_SEQUENTIAL |
+                  SDRAM_MODEREG_CAS_LATENCY_2 |
+                  SDRAM_MODEREG_OPERATING_MODE_STANDARD |
+                  SDRAM_MODEREG_WRITEBURST_MODE_SINGLE;
+  sdram_send_cmd(1, FMC_SDRAM_CMD_LOAD_MODE, 1, temp);
+
+HAL_SDRAM_ProgramRefreshRate(&hsdram2, 1699);
   /* USER CODE END FMC_Init 2 */
 }
 

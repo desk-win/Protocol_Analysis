@@ -75,6 +75,8 @@ __attribute__((section(".RAM_D3"))) uint8_t rx_spi_buffer[DMA_BUFFER_LEN];
 __attribute__((section(".RAM_D3"))) uint8_t tx_spi_buffer[DMA_BUFFER_LEN];
 
 uint8_t if_busy = 0;                            //作为主机发送数据的时候检查是否发送完成标志位
+static uint8_t *g_spi_rx_ptr = NULL;            /* master: My_SPI_SendReceive 记录 rx 指针，TxRxCpltCallback 推入 ring */
+static uint16_t g_spi_rx_len = 0;
 volatile uint8_t if_rx_finish = 0;              //全局变量用来反应接收是否完成（作为从机的时候使用），0表示未完成
 My_SPI_Error spi_error_code;                    //这个结构体用来记录各种错误
 My_SPI_Deploy spi_deploy;
@@ -117,21 +119,15 @@ uint8_t SPI_RangeBuffer_Wirte(uint8_t data){
 *   @param data_len:接收指针的大小
 *   @retval 0表示缓冲区里面没有数据，1表示正常读取
 **/
-uint8_t SPI_RangeBuffer_Read(uint8_t *data, uint32_t data_len){
-    uint8_t if_empty = 1;
-    uint32_t data_index = 0;                //索引
-    if (spi_range_buffer.buffer_tail != spi_range_buffer.buffer_head) {
-        //当缓冲区里面还有数据的时候
-        while (spi_range_buffer.buffer_tail != spi_range_buffer.buffer_head) {
-            data[data_index] = spi_range_buffer.range_buffer[spi_range_buffer.buffer_tail];
-            data_index++;
-            if(data_index >= data_len) break;
-            spi_range_buffer.buffer_tail = (spi_range_buffer.buffer_tail + 1)%SPI_RANGE_BUFFER_LEN;
-        }
-    }else {
-        if_empty = 0;
+uint32_t SPI_RangeBuffer_Read(uint8_t *data, uint32_t data_len){
+    uint32_t data_index = 0;
+    while (spi_range_buffer.buffer_tail != spi_range_buffer.buffer_head) {
+        data[data_index] = spi_range_buffer.range_buffer[spi_range_buffer.buffer_tail];
+        spi_range_buffer.buffer_tail = (spi_range_buffer.buffer_tail + 1) % SPI_RANGE_BUFFER_LEN;
+        data_index++;
+        if (data_index >= data_len) break;
     }
-    return if_empty;
+    return data_index;   /* 实际读取字节数（0=空）*/
 }
 
 void SPI_DMAStop_Manual(SPI_HandleTypeDef *hspi)
@@ -202,6 +198,38 @@ void SPI_BaudRatePrescaler(uint16_t prrscaler){
         case 128:hspi6.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128; break;
         case 256:hspi6.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256; break;
         default:hspi6.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256; break;
+    }
+}
+
+/**
+*   @brief UI datasize(4-8) → HAL SPI_DATASIZE_NBIT 枚举（v1 ≤8，BDMA byte 对齐限制）
+*   @param bits: 4/5/6/7/8
+*/
+uint32_t spi_datasize_from_u8(uint8_t bits)
+{
+    switch (bits) {
+        case 4: return SPI_DATASIZE_4BIT;
+        case 5: return SPI_DATASIZE_5BIT;
+        case 6: return SPI_DATASIZE_6BIT;
+        case 7: return SPI_DATASIZE_7BIT;
+        case 8: default: return SPI_DATASIZE_8BIT;
+    }
+}
+
+/**
+*   @brief UI baudrate 档位 → prescaler（slave 不用；master 用）
+*   SPI6=120MHz confirmed (HCLK 240/D3PPRE /2)，CM7 标签 = 120MHz /{256,128,64,32,16,8}
+*/
+uint16_t spi_prescaler_from_baud(uint32_t baud)
+{
+    switch (baud) {
+        case 468750:  return 256;
+        case 937500:  return 128;
+        case 1875000: return 64;
+        case 3750000: return 32;
+        case 7500000: return 16;
+        case 15000000:return 8;
+        default:      return 64;
     }
 }
 /**
@@ -354,6 +382,8 @@ void My_SPI_SendReceive(uint8_t *tx_data, uint8_t *rx_data, uint16_t len){
     if (spi_deploy.spi_role == MY_SPI_MASTER) {
         if (if_busy == 0) {
             if_busy = 1;
+            g_spi_rx_ptr = rx_data;            /* 记录，供 TxRxCpltCallback 推入 ring */
+            g_spi_rx_len = len;
             if (spi_deploy.cs_polarity == 0) CS_Pin_State(0);
             else CS_Pin_State(1);
             HAL_SPI_TransmitReceive_IT(&hspi6, tx_data, rx_data, len);
@@ -367,6 +397,11 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
         if (spi_deploy.spi_role == MY_SPI_MASTER) {
             if (spi_deploy.cs_polarity == 0) CS_Pin_State(1);
             else CS_Pin_State(0);
+            /* 把刚收到的 rx 字节推入 ring（统一 slave/master 数据出口 → main 循环读）*/
+            if (g_spi_rx_ptr) {
+                for (uint16_t i = 0; i < g_spi_rx_len; i++) SPI_RangeBuffer_Wirte(g_spi_rx_ptr[i]);
+                g_spi_rx_ptr = NULL;
+            }
             if_busy = 0;
         }else if(spi_deploy.spi_role == MY_SPI_SLAVE){         //作为从机的时候
             //接收完一段DMA_BUFFER_LEN长的数据之后溢出，重新开启接收中断
@@ -403,6 +438,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
             //在收到片选信号之后开启spi外设
             if (HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_10) == GPIO_PIN_RESET) {
                 analyse_index++;
+                if (analyse_index >= 20) analyse_index = 1;   /* 越界保护：spi_analyse[20]，index 0 存累计 */
                 spi_analyse[analyse_index].cs_low_tick = Get_Sys_us();         //记录cs引脚拉低的时刻
                 
             }else if(HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_10) == GPIO_PIN_SET){ 
@@ -465,22 +501,4 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
     }
 }
 
-
-/*********************************这个部分为接入RTOS***********************************/
-/**
-*   @brief 这个函数放在MX_FREERTOS_Init里面，用来创建所有的spi任务
-*
-****/
-
-void My_SPI_Init_Task(void *argument){
-    My_SPI_Init();
-    while(1){
-
-    }
-}
-
-void My_SPI_Task(void){
-    //创建初始化任务
-    xTaskCreate(My_SPI_Init_Task, "My_SPI_Init_Task", 128, NULL, osPriorityNormal, NULL);
-}
 

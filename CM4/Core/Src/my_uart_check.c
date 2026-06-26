@@ -43,15 +43,13 @@
 *
 ***************************************************************************************/
 
-uint8_t if_uart_rxok = 0;
-
-
 My_UART_State now_uart_state;
 UART_Cycle_Tx_t cycle_tx_ctrl;
 RingBuffer_t rx_ring_buf;
 uint8_t rx_uart_buffer[UART_RXDMA_LEN];            //用来接收DMA搬运数据的缓冲区
 UART_ErrorStats_t uart_errors;
 UART_Pact_t uart_analysis;
+uint8_t if_uart_rxok = 0;        //接收完成标志（0=未完成，2=完成），供外部轮询读取
 /***********************************工具函数***********************************/
 /**
 *   @brief 这个函数用来管理缓冲区，如果缓冲区没有满就将数据放进去并将指针指向下一个位置
@@ -69,7 +67,7 @@ void UART_RingBuffer_Push(uint8_t data) {
 }
 
 /**
-*   @brief 这个函数用来从环形缓冲区里面读取数据 
+*   @brief 这个函数用来从环形缓冲区里面读取数据
 *   @param pData：用来放数据的缓冲区
 *   @param len:数据长度
 *   @retval uint32_t 实际读取到的数据长度
@@ -90,11 +88,12 @@ uint32_t My_UART_Read_RingBuffer(uint8_t *pDest, uint32_t len) {
 /**
 *   @brief 这个函数用来初始化uart的一些配置
 */
-void My_UART_Init() {
+void My_UART_Init(void) {
     memset(&now_uart_state, 0, sizeof(now_uart_state));
     memset(&cycle_tx_ctrl, 0, sizeof(cycle_tx_ctrl));
     rx_ring_buf.head = 0;
     rx_ring_buf.tail = 0;
+    /* 裸机环境下重新启用 USART6 RX DMA（无 FreeRTOS 冲突）*/
     HAL_UARTEx_ReceiveToIdle_DMA(&huart6, rx_uart_buffer, UART_RXDMA_LEN);
 }
 
@@ -110,10 +109,10 @@ HAL_StatusTypeDef UART_Param_Change(uint32_t baud, uint32_t data_len, uint32_t s
     //停止当前的所有 DMA 传输和空闲中断
     HAL_UART_DMAStop(&huart6);
     __HAL_UART_DISABLE_IT(&huart6, UART_IT_IDLE);
-    
+
     //解除初始化
     if (HAL_UART_DeInit(&huart6) != HAL_OK) return HAL_ERROR;
-    
+
     //赋新参数
     huart6.Init.BaudRate = baud;
     huart6.Init.WordLength = data_len;
@@ -121,13 +120,13 @@ HAL_StatusTypeDef UART_Param_Change(uint32_t baud, uint32_t data_len, uint32_t s
     huart6.Init.Parity = parity;
     huart6.Init.HwFlowCtl = flow_ctrl;
     huart6.Init.Mode = UART_MODE_TX_RX;
-    
+
     //重新初始化硬件
     if (HAL_UART_Init(&huart6) != HAL_OK) return HAL_ERROR;
-    
+
     //重新启动 DMA + 空闲中断接收
     HAL_UARTEx_ReceiveToIdle_DMA(&huart6, rx_uart_buffer, UART_RXDMA_LEN);
-    
+
     return HAL_OK;
 }
 
@@ -140,11 +139,11 @@ HAL_StatusTypeDef UART_Param_Change(uint32_t baud, uint32_t data_len, uint32_t s
 */
 void My_UART_Send_Single(uint8_t *tx_data, uint32_t len){
     // 强制等待上一次发送完成（规避 BUSY 错误）
-    while (huart6.gState == HAL_UART_STATE_BUSY_TX); 
+    while (huart6.gState == HAL_UART_STATE_BUSY_TX);
     now_uart_state.tx_notice = 0;
     // 关闭正在进行的循环发送，优先单次发送
-    cycle_tx_ctrl.is_running = 0; 
-    
+    cycle_tx_ctrl.is_running = 0;
+
     HAL_UART_Transmit_IT(&huart6, tx_data, len);
 }
 

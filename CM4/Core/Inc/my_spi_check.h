@@ -62,16 +62,21 @@ extern My_SPI_Analyse spi_analyse[20];
 extern uint8_t rx_spi_buffer[DMA_BUFFER_LEN];
 
 extern My_SPI_Deploy spi_deploy;
+extern uint8_t if_busy;   /* main 循环 master 分支查 busy（IT 非阻塞）*/
+extern DMA_HandleTypeDef hdma_spi6_rx;   /* SPI6 RX BDMA handle (defined in spi.c, CubeMX 不在 spi.h 里 extern)*/
 
 void CS_Pin_State(uint8_t level);
 void CS_Switch_To_Exit(void);
 uint8_t SPI_RangeBuffer_Wirte(uint8_t data);
-uint8_t SPI_RangeBuffer_Read(uint8_t *data, uint32_t data_len);
+uint32_t SPI_RangeBuffer_Read(uint8_t *data, uint32_t data_len);
 uint8_t SPI_PutData_To_Buffer(void);
 void My_SPI_Init(uint8_t time_mode, My_SPI_Mode role, uint8_t cs_delay, uint16_t baudrate, uint8_t cs_polarity);
 void Switch_SPI_Mode(My_SPI_Mode spi_mode);
 void My_SPI_Send(uint8_t *data, uint32_t len);
 void My_SPI_SendReceive(uint8_t *tx_data, uint8_t *rx_data, uint16_t len);
+
+uint32_t spi_datasize_from_u8(uint8_t bits);       /* UI datasize(4-8) → HAL SPI_DATASIZE_NBIT */
+uint16_t spi_prescaler_from_baud(uint32_t baud);   /* UI baud 档位 → prescaler（master 用）*/
 
 
 #endif

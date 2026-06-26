@@ -26,7 +26,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "my_uart_check.h"
+#include "usart.h"
+#include "shared_buf.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -115,10 +117,30 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+  /* CM4 持续抓 UART → 共享内存。
+   * 注：自环回发送 My_UART_Send_Single 的 while(gState==BUSY_TX) 会因 TxCplt 中断
+   * 未把 gState 设回 READY 而死循环，导致 task 卡死(只发一次)。这里去掉自发送，
+   * 改为持续接收 + 每秒心跳字节，验证 CM4 task 持续跑 + 共享内存持续传输。 */
+  uart1_printf("\r\n[CM4] UART grab -> shared memory (heartbeat every second)\r\n");
+  uint8_t rx_buf[64];
+  uint32_t tick = 0;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    /* 1. 持续读 UART 环形缓冲（非阻塞），抓到的字节写入共享内存 */
+    uint32_t n = My_UART_Read_RingBuffer(rx_buf, sizeof(rx_buf));
+    for (uint32_t i = 0; i < n; i++) {
+      shm_push(rx_buf[i]);
+    }
+    /* 2. 心跳：每秒(100*10ms)写一个递增字节。暂去掉 alive printf——uwTick 在
+     * printf 时被破坏(栈增大无效)，隔离 printf 看 CM7 cnt 是否能持续涨。*/
+    if (tick % 100 == 0)
+    {
+      uint8_t hb = (uint8_t)('A' + (tick / 100U) % 26U);
+      shm_push(hb);
+    }
+    tick++;
+    HAL_Delay(10);  /* SysTick 中断没触发(osDelay 卡)，临时用 HAL_Delay(TIM7 tick) */
   }
   /* USER CODE END StartDefaultTask */
 }

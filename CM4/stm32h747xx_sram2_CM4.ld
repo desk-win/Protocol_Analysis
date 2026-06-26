@@ -40,7 +40,6 @@ MEMORY
 {
 RAM_EXEC (rx)      : ORIGIN = 0x10000000, LENGTH = 128K
 RAM (xrw)      : ORIGIN = 0x10020000, LENGTH = 160K
-SRAM1    (xrw) : ORIGIN = 0x30000000, LENGTH = 128K
 }
 /* Highest address of the user mode stack */
 _estack = 0x10048000;    /* end of RAM */
@@ -209,12 +208,7 @@ SECTIONS
     . = ALIGN(8);
   } >RAM
 
-  .dma_buffer (NOLOAD) :
-  {
-    . = ALIGN(32);           /* 32字节对齐，DMA传输效率更高 */
-    *(.dma_buffer)
-    . = ALIGN(32);
-  } >SRAM1
+  
 
   /* Remove information from the standard libraries */
   /DISCARD/ :

@@ -1,3 +1,16 @@
 build
 mx.scratch
 !.settings
+# IDE / tools
+.claude/
+.omc/
+.settings/
+.vscode/
+.clangd
+
+# Build artifacts
+**/build/
+CM4/Core/example/
+
+# 参考代码不进仓库（CM7/Core/example/ 历史2029文件已 tracked，新 example 用 ignore 拦）
+CM7/Core/example/
