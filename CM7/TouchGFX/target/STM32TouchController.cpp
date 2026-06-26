@@ -3,7 +3,7 @@
   ******************************************************************************
   * File Name          : STM32TouchController.cpp
   ******************************************************************************
-  * This file was created by TouchGFX Generator 4.25.0. This file is only
+  * This file was created by TouchGFX Generator 4.26.1. This file is only
   * generated once! Delete this file from your project and re-generate code
   * using STM32CubeMX or change this file manually to update it.
   ******************************************************************************
@@ -23,27 +23,48 @@
 /* USER CODE BEGIN STM32TouchController */
 
 #include <STM32TouchController.hpp>
+#include <touch.h>
 
 void STM32TouchController::init()
 {
     /**
      * Initialize touch controller and driver
      *
+     * tp_init() auto-detects GT9xxx or FT5206 via hardware I2C2 (PB10/PB11).
+     * Must be called after MX_LTDC_Init() (depends on lcddev.dir/width/height).
+     * This runs in the TouchGFX task, which starts after main() peripherals init.
      */
+    tp_init();
 }
 
 bool STM32TouchController::sampleTouch(int32_t& x, int32_t& y)
 {
     /**
-     * By default sampleTouch returns false,
-     * return true if a touch has been detected, otherwise false.
+     * Called by TouchGFX framework every tick (~60 Hz).
      *
-     * Coordinates are passed to the caller by reference by x and y.
-     *
-     * This function is called by the TouchGFX framework.
-     * By default sampleTouch is called every tick, this can be adjusted by HAL::setTouchSampleRate(int8_t);
-     *
+     * tp_scan() reads I2C only every ~10 frames (throttle) to save bus time.
+     * Between reads, tp_dev.sta retains TP_PRES_DOWN, so we check it directly
+     * instead of relying solely on tp_scan()'s return value.  This matches the
+     * example (实验24) which always checks tp_dev.sta & TP_PRES_DOWN.
      */
+    tp_scan(0);
+
+    if (tp_dev.sta & TP_PRES_DOWN)
+    {
+        uint16_t tx = tp_dev.x[0];
+        uint16_t ty = tp_dev.y[0];
+
+        /* Reject invalid coordinates (no touch / out of range) */
+        if (tx == 0xFFFF || ty == 0xFFFF)
+        {
+            return false;
+        }
+
+        x = tx;
+        y = ty;
+        return true;
+    }
+
     return false;
 }
 

@@ -34,7 +34,7 @@ set(STM32_LINKER_SCRIPT stm32h747xx_flash_CM7.ld)
 set(STM32_LINKER_OPTION  )
 
 # Set the project name
-set(CMAKE_PROJECT_NAME qiansai_CM7)
+set(CMAKE_PROJECT_NAME stm32h747_bbb_CM7)
 project(${CMAKE_PROJECT_NAME})
 
 # Create an executable object type
@@ -88,8 +88,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     TouchGFX/generated/fonts/include
     TouchGFX/generated/videos/include
     TouchGFX/gui/include
-    # TouchGFX SDK framework includes
-    E:/TouchGFX/4.26.1/touchgfx/framework/include
+    # TouchGFX SDK framework includes — provided by cmake/touchgfx (Middlewares/ST/touchgfx/framework/include)
 )
 
 # Add sources to executable
@@ -149,14 +148,5 @@ target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
 
 # Validate that STM32CubeMX code is compatible with C standard
 if((CMAKE_C_STANDARD EQUAL 90) OR (CMAKE_C_STANDARD EQUAL 99))
-    message(ERROR "Generated code requires C11 or higher")
+    message(FATAL_ERROR "Generated code requires C11 or higher")
 endif()
-
-
-
-
-
-
-
-
-

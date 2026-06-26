@@ -45,6 +45,7 @@
 #include "delay.h"
 #include "lcd.h"
 #include "bsp_driver_sd.h"
+#include "NanoEdgeAI.h"
 #include "shared_buf.h"
 #include "shared_config.h"   /* proto_config_t / SHM_CONFIG / HSEM_ID_CONFIG（USER CODE PV 用 proto_config_t，须在 PV 前 include）*/
 /* USER CODE END Includes */
