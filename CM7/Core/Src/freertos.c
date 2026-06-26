@@ -155,12 +155,25 @@ static FIL cfg_file;
 /* 持久化 SHM_CONFIG → config.bin（覆盖写）。SD 专属，仅 defaultTask 调（UI 通过 g_config_dirty 触发，不直接写）。*/
 static void write_config_bin(void)
 {
-  if (f_open(&cfg_file, "0:config.bin", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK) {
+  /* f_open/f_write 各重试 3 次（SD NAND 偶发 DISK_ERR，和录制写同套路；不重试会静默丢配置）*/
+  FRESULT fo = FR_DISK_ERR;
+  for (int fo_r = 0; fo_r < 3; fo_r++) {
+    fo = f_open(&cfg_file, "0:config.bin", FA_CREATE_ALWAYS | FA_WRITE);
+    if (fo == FR_OK) break;
+    osDelay(20);
+  }
+  if (fo == FR_OK) {
     UINT bw = 0;
     uint32_t magic = CFG_MAGIC;
     SCB_InvalidateDCache_by_Addr((uint32_t*)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 32);  /* 读最新 CM7/UI 写的值 */
-    f_write(&cfg_file, &magic, 4, &bw);
-    f_write(&cfg_file, (const void*)SHM_CONFIG, sizeof(proto_config_t), &bw);
+    FRESULT fw = FR_DISK_ERR;
+    for (int fw_r = 0; fw_r < 3; fw_r++) {
+      fw = f_write(&cfg_file, &magic, 4, &bw);
+      if (fw != FR_OK) { osDelay(10); continue; }
+      fw = f_write(&cfg_file, (const void*)SHM_CONFIG, sizeof(proto_config_t), &bw);
+      if (fw == FR_OK) break;
+      osDelay(10);
+    }
     f_close(&cfg_file);
   }
 }
