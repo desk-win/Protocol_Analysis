@@ -77,19 +77,6 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* USER CODE END FunctionPrototypes */
 
-/* 配置持久化：将 SHM_CONFIG 写入 config.bin（magic + proto_config_t）*/
-static void write_config_bin(void)
-{
-    FIL fil;
-    UINT bw;
-    uint32_t magic = CFG_MAGIC;
-    if (f_open(&fil, "0:config.bin", FA_WRITE | FA_CREATE_ALWAYS) == FR_OK) {
-        f_write(&fil, &magic, sizeof(magic), &bw);
-        f_write(&fil, (const void*)SHM_CONFIG, sizeof(proto_config_t), &bw);
-        f_close(&fil);
-    }
-}
-
 void StartDefaultTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -156,6 +143,7 @@ void StartDefaultTask(void *argument)
   extern volatile uint32_t g_sd_written;    /* 定义在 main.c，已写入 SD 字节数 */
   extern uint8_t sdnand_init(void);         /* SD_Test_ScreenView.cpp，非 static */
   extern void shm_config_notify(void);      /* main.c：写完 SHM_CONFIG 后 Release HSEM 通知 CM4 */
+  extern void write_config_bin(void);       /* config_persist.c：SHM_CONFIG → SD config.bin */
   static uint16_t read_pos = 0;
   static uint8_t sd_buf[512];               /* SD 写缓冲（满 512 一块写，高效）*/
   uint16_t sd_pos = 0;

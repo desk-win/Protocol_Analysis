@@ -106,6 +106,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Hardware/ft5206.c
     Core/Hardware/touch.c
     Core/Src/crc.c
+    Core/Src/config_persist.c    # 配置持久化（write_config_bin），独立于 CubeMX
     # TouchGFX HAL callbacks (C++ bridge from LTDC ISR to OSWrappers)
     Core/Src/touchgfx_callbacks.cpp
     # TouchGFX target HAL (C++) — these are user-editable, NOT in cmake/touchgfx

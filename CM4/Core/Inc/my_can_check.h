@@ -5,6 +5,8 @@
 #include "stm32h7xx_hal.h"
 #include "fdcan.h"
 #include <stdint.h>
+#include "FreeRTOS.h"
+#include "semphr.h"
 
 
 #define MAX_CAN_DATA_LEN   8        //一个数据包里面最大数据长度
@@ -92,6 +94,10 @@ typedef struct {
 } Can_Analyse;
 
 
+/* RTOS 信号量 */
+extern SemaphoreHandle_t can_rxcallback_semaphore;
+extern SemaphoreHandle_t can_txcallback_semaphore;
+
 uint8_t CAN_RangeBuffer_Write(Can_Range_Buffer *rangebuffer, Can_Message_Struct *rx_mes);
 uint8_t CAN_RangeBuffer_Read(Can_Message_Struct *rx_mes, uint8_t len);
 void CAN_Handler_Start(void);
@@ -105,6 +111,9 @@ void My_CAN_Send_Cycle(uint8_t *data);
 void CAN_Filter_Config(uint8_t mode, uint32_t targetID, Can_ID_Type idType, uint32_t targetFIFO);
 void CAN_ID_Frequence(uint32_t id, uint8_t dlc, uint8_t if_extend);
 void CAN_Statis_Task(uint32_t currentBaudRate);
+
+/* RTOS 任务 */
+void CAN_Callback_Task(void *argument);
 
 
 

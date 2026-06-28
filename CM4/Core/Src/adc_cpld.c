@@ -1,6 +1,7 @@
 #include "adc_cpld.h"
 #include "dcmi.h"
 #include "main.h"
+#include "projdefs.h"
 #include "stm32h747xx.h"
 #include "stm32h7xx_hal_dcmi.h"
 #include "stm32h7xx_hal_dma.h"
@@ -13,7 +14,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-
+#include "FreeRTOS.h"
+#include "task.h"
+#include "FreeRTOS.h"
+#include "cmsis_os2.h"
+#include "shared_buf.h"
+#include "shared_config.h"
 
 
 /**************************************************************
@@ -36,8 +42,8 @@ uint32_t *raw_buf_1 = &raw_big_buf[RAW_BUF_WORDS];
 
 // 外部调用adc_a_buf和adc_b_buf能获取两个ADC采集的数据
 
-uint8_t adc_a_buf[CHANNEL_SAMPLES];
-uint8_t adc_b_buf[CHANNEL_SAMPLES];
+// uint8_t adc_a_buf[CHANNEL_SAMPLES];
+// uint8_t adc_b_buf[CHANNEL_SAMPLES];
 volatile bool frame_ready = false;
 volatile uint16_t last_frame_id  = 0xFFFF;
 
@@ -95,13 +101,18 @@ void Parse_Frame(const uint8_t *raw){
     uint32_t sample_index = 0;              //分成两个缓冲区，每个缓冲区的索引
     uint32_t pos = data_start;              //原来总缓冲区的索引
     while (pos+1 < FRAME_TOTAL_BYTES && sample_index < CHANNEL_SAMPLES) {
-        adc_a_buf[sample_index] = raw[pos];
-        adc_b_buf[sample_index] = raw[pos+1];
+        DCMI_ADC_A[sample_index] = raw[pos];
+        DCMI_ADC_B[sample_index] = raw[pos+1];
         sample_index++;
         pos += 2;
     }
     //通知已经将一个缓冲区里面的数据解析完成
-    if (sample_index >= CHANNEL_SAMPLES) frame_ready = true;
+      if (sample_index >= CHANNEL_SAMPLES) {
+        __DMB();
+        DCMI_SHM_CTRL->frame_ready = 1;
+        DCMI_SHM_CTRL->frame_id++;
+        __DMB();
+    }
 }
 
 
@@ -150,7 +161,19 @@ void DCMI_DoubleBuffer_Start(){
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_SET);
 }
 
-
-
+/**
+*   @brief 控制DCMI开启采集和停止
+**/
+void Control_DCMI_Task(void *argument){
+    while (1) {
+        //如果置1表示要开启dcmi
+        if (SHM_CONFIG->dcmi_enable) {
+            DCMI_DoubleBuffer_Start();
+        }else {
+            CPLD_Stop();
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 
 

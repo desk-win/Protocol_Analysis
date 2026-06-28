@@ -5,6 +5,9 @@
 #include "stm32h7xx_hal_def.h"
 #include "stm32h7xx_hal_fdcan.h"
 #include <stdint.h>
+#include "shared_buf.h"
+#include "shared_config.h"
+#include "string.h"
 
 /************************************************************************************
 *收发节点：
@@ -57,6 +60,10 @@ FDCAN_TxHeaderTypeDef TxHeader;             //发送数据时的参数句柄
 Can_Cycle my_can_cycle;
 Can_Message_Struct rx_message;              //接收报文的信息
 Can_Analyse my_can_judge;                   //用来分析错误的句柄
+
+/* RTOS 信号量：ISR 中 Give，Task 中 Take */
+SemaphoreHandle_t can_rxcallback_semaphore = NULL;
+SemaphoreHandle_t can_txcallback_semaphore = NULL;
 
 /*****************************************工具函数*******************************************/
 /**
@@ -447,6 +454,9 @@ void HAL_FDCAN_ErrorCallback(FDCAN_HandleTypeDef *hfdcan){
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs) {
     if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != 0) {
         CAN_Rx_Deal(hfdcan, FDCAN_RX_FIFO0);
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        xSemaphoreGiveFromISR(can_rxcallback_semaphore, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }
 
@@ -454,12 +464,85 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs) {
     if ((RxFifo1ITs & FDCAN_IT_RX_FIFO1_NEW_MESSAGE) != 0) {
         CAN_Rx_Deal(hfdcan, FDCAN_RX_FIFO1);
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        xSemaphoreGiveFromISR(can_rxcallback_semaphore, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }
 
 //发送结束回调函数
 void HAL_FDCAN_TxEventFifoCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t TxEventFifoITs){
     if (TxEventFifoITs & FDCAN_IT_TX_COMPLETE) {
-        
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        xSemaphoreGiveFromISR(can_txcallback_semaphore, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+}
+
+/******************************************************************************
+ * CAN RTOS 回调处理任务
+ *
+ * 两个信号量驱动：
+ *   can_rxcallback_semaphore  ← FIFO0/FIFO1 收到新报文时 Give（ISR）
+ *   can_txcallback_semaphore  ← 发送完成时 Give（ISR）
+ *
+ * RX 路径：从环形缓冲区逐条读取 CAN 报文 → 推入 SHM_RING 给 CM7
+ * TX 路径：通知 CM7 发送完成（HSEM ID 2 → CM7 中断）
+ *
+ * SHM 格式（每条 CAN 报文）：
+ *   FD CC            CAN 报文标记
+ *   u32  can_id      报文 ID
+ *   u8   id_type     0=标准帧 1=扩展帧
+ *   u8   frametype   0=数据帧 1=遥控帧
+ *   u8   dlc_len     数据字节数 (0~8)
+ *   u8[] data[dlc]   数据内容
+ ******************************************************************************/
+void CAN_Callback_Task(void *argument)
+{
+    while (1) {
+        /* —— RX：收到新 CAN 报文 —— */
+        if (xSemaphoreTake(can_rxcallback_semaphore, pdMS_TO_TICKS(10)) == pdPASS) {
+            /* 一次性清空环形缓冲区中所有待处理的报文 */
+            Can_Message_Struct msg;
+            while (CAN_RangeBuffer_Read(&msg, 1)) {
+                uint8_t dlc_len = Switch_DLC_TO_Len(msg.DLC);
+                if (dlc_len > 8) dlc_len = 8;
+
+                /* 统计：ID 频率 + 总线利用率 */
+                CAN_ID_Frequence(msg.can_id, dlc_len,
+                    (msg.id_type == CAN_ID_EXTENDED) ? 1 : 0);
+
+                /* 推送单条 CAN 报文到共享环形缓冲区 */
+                shm_push(0xFD);
+                shm_push(0xCC);                       // CAN 协议标记
+                shm_push_u32(msg.can_id);             // 报文 ID
+                shm_push((uint8_t)msg.id_type);       // 0=标准, 1=扩展
+                shm_push((uint8_t)msg.frametype);     // 0=数据, 1=遥控
+                shm_push(dlc_len);                    // 数据字节数
+                shm_push_buf(msg.my_can_data, dlc_len); // 数据内容
+            }
+        }
+
+        /* —— TX：M7 有待发送数据？—— */
+        {
+            uint16_t tx_len = *SHM_TX_LEN;
+            if (tx_len > 0 && tx_len <= SHM_TX_BUF_SIZE && tx_len <= 8) {
+                uint8_t tx_data[8];
+                memcpy(tx_data, (const void*)SHM_TX_BUF, tx_len);
+                *SHM_TX_LEN = 0;  /* 标记已消费 */
+                My_CAN_Send_Single(tx_data);
+            }
+        }
+
+        /* —— TX 完成通知 —— */
+        if (xSemaphoreTake(can_txcallback_semaphore, 0) == pdPASS) {
+            __DMB();
+            SHM_STATUS->protocol_done  = 1;
+            SHM_STATUS->protocol_error = 0;
+            HAL_HSEM_Take(HSEM_ID_DONE, 0);
+            HAL_HSEM_Release(HSEM_ID_DONE, 0);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

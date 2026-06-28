@@ -8,6 +8,11 @@
 #include "usart_printf.h"
 #include <math.h>
 #include <stdint.h>
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "task.h"
+#include "cmsis_os2.h"
+#include "semphr.h"
 
 #define     I2C_RANGE_BUFFER_LEN     1024       //环形缓冲区最大长度   
 #define		RXDATA_LEN		100			//最大接收数据长度
@@ -65,7 +70,7 @@ typedef struct{
     uint32_t address;                       //要发送的从机地址
     uint8_t task_done;
 
-    I2C_Error_Type i2c_err;
+    
     uint8_t bit7_check[128];
     uint8_t bit10_check[1024];
 }I2C_Data;
@@ -87,6 +92,8 @@ typedef struct{
     uint32_t success_frame;         //成功通信帧数
     uint32_t fail_frame;            //失败通信帧数
     float_t success_rate;             //传输成功率
+
+    I2C_Error_Type i2c_err;
 } I2C_Analyse;
 
 //用来记录一帧里面的状态
@@ -129,6 +136,9 @@ typedef struct{
 
 extern I2C_Data my_i2c_data;
 
+extern SemaphoreHandle_t i2c_mastercallback_semaphore;
+extern SemaphoreHandle_t i2c_slavecallback_semaphore;
+
 uint8_t I2C_RangeBuffer_Write(uint8_t data);
 uint8_t I2C_RangeBuffer_Read(uint8_t *data, uint32_t data_len);
 void I2C_PutData_To_Buffer(void);
@@ -141,5 +151,7 @@ void My_I2C_Master_Read_Simple(uint16_t address, uint8_t *data, uint16_t len);
 HAL_StatusTypeDef My_I2C_Master_Send_ReStart(uint16_t address);
 
 void My_I2C_Bus_Check(void);
+
+void I2C_Callback_Task(void *argument);
 
 #endif

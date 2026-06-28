@@ -43,4 +43,6 @@ void CPLD_Base_Clock(uint8_t enable);
 void DCMI_DoubleBuffer_Start(void);
 void CPLD_Stop(void);
 
+void Control_DCMI_Task(void *argument);
+
 #endif

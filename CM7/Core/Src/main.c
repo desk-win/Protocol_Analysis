@@ -44,6 +44,7 @@
 #include "tim.h"
 #include "delay.h"
 #include "lcd.h"
+#include "string.h"
 #include "bsp_driver_sd.h"
 #include "NanoEdgeAI.h"
 #include "shared_buf.h"
@@ -220,13 +221,26 @@ Error_Handler();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_DMA_Init();
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_BDMA_Init();
+  MX_FMC_Init();
+  MX_SDMMC2_SD_Init();
+  MX_DMA2D_Init();
+  MX_I2C2_Init();
+  MX_TIM3_Init();
+  MX_CRC_Init();
+  MX_LTDC_Init();
+  MX_FATFS_Init();
+  //MX_TouchGFX_Init();
+  /* Call PreOsInit function */
+  //MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
+  
   /* 恢复 regen 删除的共享内存 MPU region（双核 HSEM config/ring buffer + SDMMC2 DMA buffer 必须 non-cacheable）。
    * MPU_Config 生成区被 regen 覆盖只剩 Region 0/1，这里 USER CODE 区补回 Region 2/3/4。
    * SRAM4(D3)删了会导致 SDMMC2 DMA buffer cache 不一致 → HAL_SD_Init 失败 → SD 检测不到。*/
+   HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_DONE));
   {
     MPU_Region_InitTypeDef MPU_Shared = {0};
     MPU_Shared.Enable = MPU_REGION_ENABLE;
@@ -250,17 +264,23 @@ Error_Handler();
     MPU_Shared.Size = MPU_REGION_SIZE_128KB;
     HAL_MPU_ConfigRegion(&MPU_Shared);
   }
-  MX_FMC_Init();           /* SDRAM init MUST precede LTDC (framebuffer @ 0xD0000000) */
-  MX_LTDC_Init();          /* LTDC reads from SDRAM — requires FMC already running */
-  MX_I2C2_Init();
-  MX_TIM3_Init();
-  MX_DMA2D_Init();
-  MX_CRC_Init();
-  MX_SDMMC2_SD_Init();
-  MX_FATFS_Init();
-  MX_TouchGFX_Init();
-  /* Call PreOsInit function */
-  MX_TouchGFX_PreOSInit();
+  
+  SHM_CONFIG->active_proto = 1;
+  SHM_CONFIG->uart.baudrate = 9600;
+  SHM_CONFIG->uart.stopbits = 1;
+  SHM_CONFIG->uart.parity = 0;
+  SHM_CONFIG->uart.databits = 8;
+  const char msg[] = {0xAA,0x23};
+    uint16_t len = 2;
+    memcpy((void *)SHM_TX_BUF, msg, len);
+    *SHM_TX_LEN = len;
+
+    SCB_CleanDCache_by_Addr((uint32_t *)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 64);
+    SCB_CleanDCache_by_Addr((uint32_t *)SHM_TX_BUF_ADDR, 258);
+    __DSB();
+  HAL_HSEM_FastTake(HSEM_ID_CONFIG);
+
+HAL_HSEM_Release(HSEM_ID_CONFIG,0);
 
   /* SD NAND init is deferred to TouchGFX handleTickEvent().
    * HAL_SD_Init() blocks in SDMMC_GetCmdResp1() on this platform,

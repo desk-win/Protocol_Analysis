@@ -7,6 +7,11 @@
 #include "string.h"
 #include <stdint.h>
 #include <sys/types.h>
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "task.h"
+#include "cmsis_os2.h"
+#include "semphr.h"
 
 #define UART_RXDMA_LEN      256   // DMA 单次接收缓冲区大小（够容纳一帧最大数据即可）
 #define RING_BUFFER_LEN     1024  // 环形缓冲区大小
@@ -52,6 +57,7 @@ typedef struct {
 typedef struct {
     uint8_t if_form;           // 判断有没有帧结构，0没有
     uint32_t last_frame_tick;  // 上一帧接收完成的时间戳
+    uint32_t current_frame_tick;
     uint32_t max_interval;     // 最大帧间隔 (ms)
     uint32_t min_interval;     // 最小帧间隔 (ms)
     uint32_t total_interval;   // 总帧间隔时间（用于算平均值）
@@ -61,12 +67,17 @@ typedef struct {
     uint8_t form_head;          // 帧头
     uint8_t form_tail;          // 帧尾
     uint32_t error_count;       // 帧完整性错误计数
+
+    uint8_t rx_frame_size;
 } UART_Pact_t;
 
 // 全局变量声明（定义在 my_uart_check.c，供外部读取协议分析/错误统计结果）
 extern uint8_t if_uart_rxok;            // 接收完成标志（0=未完成，2=完成）
 extern UART_ErrorStats_t uart_errors;   // 错误统计（帧/校验/溢出/噪声计数 + 滑动窗口错误率）
 extern UART_Pact_t uart_analysis;       // 协议分析（帧间隔 max/min/avg + 成功帧数 + 错误计数）
+
+extern SemaphoreHandle_t uart_rxcallback_semaphore;
+extern SemaphoreHandle_t uart_txcallback_semaphore;
 
 void My_UART_Init(void);
 HAL_StatusTypeDef UART_Param_Change(uint32_t baud, uint32_t data_len, uint32_t stop_bits, uint32_t parity, uint32_t flow_ctrl);
@@ -76,5 +87,7 @@ void My_UART_LoopTask(void);
 void Update_Error_Window(uint8_t if_error);
 uint8_t Check_Form(uint8_t *data, uint32_t len, UART_Pact_t form_data);
 uint32_t My_UART_Read_RingBuffer(uint8_t *pDest, uint32_t len);
+
+void UART_Callback_Task(void *argument);
 
 #endif

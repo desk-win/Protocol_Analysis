@@ -1,6 +1,10 @@
 #include "my_uart_check.h"
 #include "main.h"
 #include "my_dwt_count.h"
+#include "portmacro.h"
+#include "projdefs.h"
+#include "shared_buf.h"
+#include "shared_config.h"
 #include "stm32_hal_legacy.h"
 #include "stm32h747xx.h"
 #include "stm32h7xx.h"
@@ -10,6 +14,8 @@
 #include "stm32h7xx_hal_uart_ex.h"
 #include "usart.h"
 #include <stdint.h>
+#include <string.h>
+
 
 /****************************************************************************
 *基础收发：
@@ -50,6 +56,9 @@ uint8_t rx_uart_buffer[UART_RXDMA_LEN];            //用来接收DMA搬运数据
 UART_ErrorStats_t uart_errors;
 UART_Pact_t uart_analysis;
 uint8_t if_uart_rxok = 0;        //接收完成标志（0=未完成，2=完成），供外部轮询读取
+
+SemaphoreHandle_t uart_rxcallback_semaphore = NULL;
+SemaphoreHandle_t uart_txcallback_semaphore = NULL;
 /***********************************工具函数***********************************/
 /**
 *   @brief 这个函数用来管理缓冲区，如果缓冲区没有满就将数据放进去并将指针指向下一个位置
@@ -251,57 +260,23 @@ uint8_t Check_Form(uint8_t *data, uint32_t len, UART_Pact_t form_data){
     return 1;
 }
 
-//接收完一段不定长数据之后会进入这个空闲中断回调函数
+//接收完一段不定长数据之后会进入这个空闲中断回调函数，Size 是硬件自动计算出来的本次收到的实际不定长数据长度
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
     if (huart->Instance == USART6) {
-        // Size 是硬件自动计算出来的本次收到的实际不定长数据长度
-        //将接收到的数据压入环形缓冲区管理
-        uint32_t current_tick = Get_Sys_us();
-        for (uint16_t i = 0; i < Size; i++) {
+        //记录实际不定长数据长度
+        uart_analysis.rx_frame_size = Size;
+        //记录当前时间
+        uart_analysis.current_frame_tick = Get_Sys_us();
+        
+        //将接收数据写入环形缓冲区
+        for (uint16_t i = 0; i < uart_analysis.rx_frame_size; i++) {
             UART_RingBuffer_Push(rx_uart_buffer[i]);
         }
-        //触发接收完成通知标志
-        now_uart_state.rx_notice = 1;
-        //记录当前时间    
-        if (uart_analysis.success_count == 0) {
-            //这里是第一帧
-            uart_analysis.min_interval = 0xFFFFFFFF;
-            uart_analysis.max_interval = 0;
-        }else {
-            //两帧之间的时间间隔
-            uint32_t interval = current_tick - uart_analysis.last_frame_tick;
-            //找出最大最小帧间隔
-            if(interval > uart_analysis.max_interval) uart_analysis.max_interval = interval;
-            if(interval < uart_analysis.min_interval) uart_analysis.min_interval = interval;
-            //总帧间隔
-            uart_analysis.total_interval += interval;
-            uart_analysis.avg_interval = uart_analysis.total_interval/uart_analysis.success_count;
-
-        }
-        uart_analysis.last_frame_tick = current_tick;
-        //如果数据是有格式的
-        if (uart_analysis.if_form == 1) {
-            if (Check_Form(rx_uart_buffer,Size,uart_analysis)) {
-                uart_analysis.success_count++;
-                //处理了一个无错误帧
-                Update_Error_Window(0);
-            }else {
-                uart_analysis.error_count++;
-                Update_Error_Window(1);
-            }
-        }else {
-            if (uart_errors.frame_error == 0) {
-                uart_analysis.success_count++;
-                //处理了一个无错误帧
-                Update_Error_Window(0);
-            }else if (uart_errors.frame_error == 1) {
-                uart_analysis.error_count++;
-                Update_Error_Window(1);
-            }
-        }
-
-        if_uart_rxok = 2;
+        //开启下次中断
         HAL_UARTEx_ReceiveToIdle_DMA(&huart6, rx_uart_buffer, UART_RXDMA_LEN);
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        xSemaphoreGiveFromISR(uart_rxcallback_semaphore, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }
 
@@ -311,7 +286,97 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
         // 如果不是循环发送模式，或者循环发送刚好结束，通知应用层
         if (!cycle_tx_ctrl.is_running) {
             now_uart_state.tx_notice = 1; 
+            BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+            xSemaphoreGiveFromISR(uart_txcallback_semaphore, &xHigherPriorityTaskWoken);
+            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         }
     }
 }
 
+/**
+*   @brief UART回调处理任务
+*
+*
+*
+**/
+void UART_Callback_Task(void *argument){
+    //创建二值信号量，在接收回调函数里面释放
+    while (1) {
+        if (xSemaphoreTake(uart_rxcallback_semaphore, portMAX_DELAY) == pdPASS) {
+            
+            //触发接收完成通知标志
+            now_uart_state.rx_notice = 1;   
+            if (uart_analysis.success_count == 0) {
+                //这里是第一帧
+                uart_analysis.min_interval = 0xFFFFFFFF;
+                uart_analysis.max_interval = 0;
+            }else {
+                //两帧之间的时间间隔
+                uint32_t interval = uart_analysis.current_frame_tick - uart_analysis.last_frame_tick;
+                //找出最大最小帧间隔
+                if(interval > uart_analysis.max_interval) uart_analysis.max_interval = interval;
+                if(interval < uart_analysis.min_interval) uart_analysis.min_interval = interval;
+                //总帧间隔
+                uart_analysis.total_interval += interval;
+                uart_analysis.avg_interval = uart_analysis.total_interval/uart_analysis.success_count;
+
+            }
+            uart_analysis.last_frame_tick = uart_analysis.current_frame_tick;
+            //如果数据是有格式的
+            if (uart_analysis.if_form == 1) {
+                if (Check_Form(rx_uart_buffer,uart_analysis.rx_frame_size,uart_analysis)) {
+                    uart_analysis.success_count++;
+                    //处理了一个无错误帧
+                    Update_Error_Window(0);
+                }else {
+                    uart_analysis.error_count++;
+                    Update_Error_Window(1);
+                }
+            }else {
+                if (uart_errors.frame_error == 0) {
+                    uart_analysis.success_count++;
+                    //处理了一个无错误帧
+                    Update_Error_Window(0);
+                }else if (uart_errors.frame_error == 1) {
+                    uart_analysis.error_count++;
+                    Update_Error_Window(1);
+                }
+            }
+            if_uart_rxok = 2;
+            //M4将数据推送到共享环形缓冲区
+            //先告诉M7包头格式
+            shm_push(0xFD);
+            shm_push(0xAA);             //uart的帧头
+            shm_push_u16(uart_analysis.rx_frame_size);      // 数据长度
+            shm_push_u32(uart_analysis.total_interval);
+            shm_push_u32(uart_analysis.success_count);
+            shm_push_u32(uart_analysis.error_count);
+            shm_push(ERROR_WINDOW_SIZE);
+            //推送接收的数据
+            uint8_t tempo_buffer[uart_analysis.rx_frame_size];
+            My_UART_Read_RingBuffer(tempo_buffer, uart_analysis.rx_frame_size);
+            shm_push_buf(tempo_buffer, uart_analysis.rx_frame_size);
+            shm_push_buf(uart_errors.error_history, ERROR_WINDOW_SIZE);
+            
+        }else if (xSemaphoreTake(uart_txcallback_semaphore, 0) == pdPASS) {
+            /* TX 完成 → 通知 M7 */
+            __DMB();
+            SHM_STATUS->protocol_done  = 1;
+            SHM_STATUS->protocol_error = 0;
+            HAL_HSEM_Take(HSEM_ID_DONE, 0);
+            HAL_HSEM_Release(HSEM_ID_DONE, 0);
+        }
+
+        /* 检查 M7 是否有待发送数据（主机发送模式）*/
+        {
+            uint16_t tx_len = *SHM_TX_LEN;
+            if (tx_len > 0 && tx_len <= SHM_TX_BUF_SIZE) {
+                uint8_t tx_data[SHM_TX_BUF_SIZE];
+                memcpy(tx_data, (const void*)SHM_TX_BUF, tx_len);
+                *SHM_TX_LEN = 0;  /* 标记已消费 */
+                My_UART_Send_Single(tx_data, tx_len);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}

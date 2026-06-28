@@ -1,6 +1,7 @@
 #include "my_spi_check.h"
 #include "cmsis_os2.h"
 #include "my_dwt_count.h"
+#include "projdefs.h"
 #include "spi.h"
 #include "stm32_hal_legacy.h"
 #include "stm32h747xx.h"
@@ -10,7 +11,10 @@
 #include "stm32h7xx_hal_exti.h"
 #include "stm32h7xx_hal_gpio.h"
 #include "stm32h7xx_hal_spi.h"
+
 #include "my_dma_catch.h"
+#include "shared_config.h"
+#include "shared_buf.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -81,8 +85,11 @@ volatile uint8_t if_rx_finish = 0;              //全局变量用来反应接收
 My_SPI_Error spi_error_code;                    //这个结构体用来记录各种错误
 My_SPI_Deploy spi_deploy;
 SPI_Range_Buffer spi_range_buffer;               //用来记录接收环形缓冲区状态
-My_SPI_Analyse spi_analyse[20] = {0};
-uint8_t analyse_index = 0;                      //spi_analyse[20]结构体数组的索引
+My_SPI_Analyse spi_analyse;
+
+
+SemaphoreHandle_t spi_mastercallback_semaphore = NULL;
+SemaphoreHandle_t spi_slavecallback_semaphore = NULL;
 /****************************************工具函数*************************************/
 /**
 *   @brief 作为主机时cs引脚状态函数
@@ -346,32 +353,6 @@ void Switch_SPI_Mode(My_SPI_Mode spi_mode){
 
 /*****************************************主机模式***************************************/
 
-
-
-/**
-*   @brief 当被配置为主机模式的时候，使用这个函数发送数据,只负责发送
-*   @param data:传入要发送的数据
-*   @param len:要发送的数据长度
-*/
-void My_SPI_Send(uint8_t *data, uint32_t len){
-    if (spi_deploy.spi_role == MY_SPI_MASTER) {
-        if (if_busy == 0) {
-            if_busy = 1;
-            if (spi_deploy.cs_polarity == 0) CS_Pin_State(0);
-            else CS_Pin_State(1);
-            HAL_SPI_Transmit_IT(&hspi6, data, len);
-        }
-    }
-}
-
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi){
-    if (hspi->Instance == hspi6.Instance) {
-        if (spi_deploy.cs_polarity == 0) CS_Pin_State(1);
-        else CS_Pin_State(0);
-        if_busy = 0;
-    }
-}
-
 /**
 *   @brief 作为主机的时候，在发送数据的同时捕获MISO上的数据，发送的同时接收
 *   @param tx_data:要发送的数据
@@ -403,6 +384,9 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
                 g_spi_rx_ptr = NULL;
             }
             if_busy = 0;
+            BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+            xSemaphoreGiveFromISR(spi_slavecallback_semaphore, &xHigherPriorityTaskWoken);
+            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         }else if(spi_deploy.spi_role == MY_SPI_SLAVE){         //作为从机的时候
             //接收完一段DMA_BUFFER_LEN长的数据之后溢出，重新开启接收中断
             SPI_PutData_To_Buffer();
@@ -416,18 +400,12 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
 /**
 *   @brief 通过判断if_rx_finish标志位来判断是否完成一次接收，并将数据放入环形缓冲区
 ***/
-uint8_t SPI_PutData_To_Buffer(){
-    if (if_rx_finish) {
-        //当一次接收完成
-        uint32_t this_data_len = (DMA_BUFFER_LEN - __HAL_DMA_GET_COUNTER(&hdma_spi6_rx));       //数据长度
-        uint32_t data_index = 0;                                
-        for (data_index = 0; data_index < this_data_len; data_index++) {
-            SPI_RangeBuffer_Wirte(rx_spi_buffer[data_index]);
-        }
-        if_rx_finish = 0;               //表示现在数据已经放入环形缓冲区里面了
-        return 1;
+void SPI_PutData_To_Buffer(){
+    spi_analyse.spi_rx_len = (DMA_BUFFER_LEN - __HAL_DMA_GET_COUNTER(&hdma_spi6_rx));       //数据长度
+    uint32_t data_index = 0;                                
+    for (data_index = 0; data_index < spi_analyse.spi_rx_len; data_index++) {
+        SPI_RangeBuffer_Wirte(rx_spi_buffer[data_index]);
     }
-    return 0;
 }
 
 
@@ -437,42 +415,21 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
         if (spi_deploy.spi_role == MY_SPI_SLAVE) {
             //在收到片选信号之后开启spi外设
             if (HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_10) == GPIO_PIN_RESET) {
-                analyse_index++;
-                if (analyse_index >= 20) analyse_index = 1;   /* 越界保护：spi_analyse[20]，index 0 存累计 */
-                spi_analyse[analyse_index].cs_low_tick = Get_Sys_us();         //记录cs引脚拉低的时刻
+                spi_analyse.cs_low_tick = Get_Sys_us();         //记录cs引脚拉低的时刻
                 
             }else if(HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_10) == GPIO_PIN_SET){ 
                 //cs脉冲间隔
-                spi_analyse[analyse_index].cs_hight_tick = Get_Sys_us();
+                spi_analyse.cs_hight_tick = Get_Sys_us();
                 SPI_DMAStop_Manual(&hspi6);        //在结束片选之后关闭接收
-                
-                //统计总帧数、成功失败帧数  
-                spi_analyse[analyse_index].spi_total_frame = analyse_index;
-                if (spi_deploy.spi_error.error_code == 0) {
-                    spi_analyse[0].spi_success_frame++;
-                    spi_analyse[analyse_index].spi_success_frame = spi_analyse[0].spi_success_frame;
-                }else {
-                    spi_analyse[0].spi_fail_frame++;
-                    spi_analyse[analyse_index].spi_fail_frame = spi_analyse[0].spi_fail_frame;
-                }
-                //计算成功率
-                spi_analyse[analyse_index].transmit_success_rate = ((float_t)spi_analyse[analyse_index].spi_success_frame/spi_analyse[analyse_index].spi_total_frame);
 
-                //计算帧间隔
-                if (spi_analyse[analyse_index].spi_total_frame > 1) {
-                    spi_analyse[analyse_index].spi_frame_gap = spi_analyse[analyse_index].cs_low_tick - spi_analyse[analyse_index-1].cs_hight_tick;
-                }else {
-                    spi_analyse[analyse_index].spi_frame_gap = 0;
-                }
-                //cs脉冲间隔
-                spi_analyse[analyse_index].cs_gap_tick = spi_analyse[analyse_index].cs_hight_tick - spi_analyse[analyse_index].cs_low_tick; 
-                /**********在这里可以做将数据放入环形缓冲区的操作*********/
-                if_rx_finish = 1;            //在这里将标志位置1之后可以调用SPI_PutData_To_Buffer()将数据放入缓冲区       
                 SPI_PutData_To_Buffer();
-                
-                /******************************************************/
                 //开启下一次通信
                 HAL_SPI_TransmitReceive_DMA(&hspi6, tx_spi_buffer, rx_spi_buffer, DMA_BUFFER_LEN);
+                //释放信号量
+                BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+                xSemaphoreGiveFromISR(spi_slavecallback_semaphore, &xHigherPriorityTaskWoken);
+                portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+                
             }
         }
         __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_10);
@@ -501,4 +458,64 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
     }
 }
 
+void SPI_Callback_Task(void *argument){
 
+    while (1) {
+        if (spi_deploy.spi_role == MY_SPI_SLAVE) {
+            if (xSemaphoreTake(spi_slavecallback_semaphore, portMAX_DELAY) == pdPASS) {
+                
+                //统计总帧数、成功失败帧数  
+                if (spi_deploy.spi_error.error_code == 0) {
+                    spi_analyse.spi_success_frame++;
+                }else {
+                    spi_analyse.spi_fail_frame++;
+                }
+                //计算成功率
+                spi_analyse.transmit_success_rate = ((float_t)spi_analyse.spi_success_frame/spi_analyse.spi_total_frame);
+                //计算帧间隔
+                if (spi_analyse.spi_total_frame > 1) {
+                    spi_analyse.spi_frame_gap = spi_analyse.cs_low_tick - spi_analyse.cs_last_hight_tick;
+                }else {
+                    spi_analyse.spi_frame_gap = 0;
+                }
+                //cs脉冲间隔
+                spi_analyse.cs_gap_tick = spi_analyse.cs_hight_tick - spi_analyse.cs_low_tick; 
+                spi_analyse.cs_last_hight_tick = spi_analyse.cs_hight_tick;
+                
+                shm_push(0xFD);
+                shm_push(0xBB);                 //spi的帧头
+                shm_push_u16(spi_analyse.spi_rx_len);      // 数据长度
+                shm_push_u32(spi_analyse.cs_gap_tick);
+                shm_push_u32(spi_analyse.spi_frame_gap);
+                shm_push_u16(spi_analyse.spi_total_frame);
+                shm_push_float(spi_analyse.transmit_success_rate);
+                shm_push_u32(spi_error_code.error_code);
+                uint8_t tempo_buffer[spi_analyse.spi_rx_len];
+                SPI_RangeBuffer_Read(tempo_buffer, spi_analyse.spi_rx_len);
+                //推送接收的数据
+                shm_push_buf(tempo_buffer, spi_analyse.spi_rx_len);
+
+            }
+        }else if (spi_deploy.spi_role == MY_SPI_MASTER) {
+            /* 主机模式：从 SHM_TX_BUF 读 M7 给的发送数据 */
+            uint16_t tx_len = *SHM_TX_LEN;
+            if (tx_len > 0 && tx_len <= SHM_TX_BUF_SIZE) {
+                uint8_t tx_data[SHM_TX_BUF_SIZE];
+                memcpy(tx_data, (const void*)SHM_TX_BUF, tx_len);
+                *SHM_TX_LEN = 0;  /* 标记已消费 */
+
+                My_SPI_SendReceive(tx_data, /*rx_out*/NULL, tx_len);
+
+                /* 等发送完成 → 通知 M7 */
+                if (xSemaphoreTake(spi_mastercallback_semaphore, pdMS_TO_TICKS(500)) == pdPASS) {
+                    __DMB();
+                    SHM_STATUS->protocol_done  = 1;
+                    SHM_STATUS->protocol_error = 0;
+                    HAL_HSEM_Take(HSEM_ID_DONE, 0);
+                    HAL_HSEM_Release(HSEM_ID_DONE, 0);
+                }
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
