@@ -19,12 +19,10 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "projdefs.h"
 #include "task.h"
 #include "main.h"
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
-#include "semphr.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -119,7 +117,7 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  xTaskCreate(Proto_Select, "Proto_Select", 256, NULL, osPriorityAboveNormal, NULL);
+  xTaskCreate(Proto_Select, "Proto_Select", 512, NULL, osPriorityAboveNormal, NULL);
 
   /* 数据采集控制任务（轮询 SHM_CONFIG->dcmi_enable / dma_catch_enable）*/
   xTaskCreate(Control_DCMI_Task, "DCMI_Ctrl", 128, NULL, osPriorityLow, NULL);
@@ -187,7 +185,6 @@ void Proto_Select(void *argument){
         uart_rxcallback_semaphore = xSemaphoreCreateBinary();
         uart_txcallback_semaphore = xSemaphoreCreateBinary();
         apply_uart_config_from_shm();
-        uart1_printf("M4 get uart sign\r\n");
         xTaskCreate(UART_Callback_Task, "UART_Callback_Task", 256, NULL, osPriorityNormal, NULL);
       }
       else if (SHM_CONFIG->active_proto == 2) {
@@ -206,7 +203,7 @@ void Proto_Select(void *argument){
         can_rxcallback_semaphore = xSemaphoreCreateBinary();
         can_txcallback_semaphore = xSemaphoreCreateBinary();
         apply_can_config_from_shm();
-        xTaskCreate(CAN_Callback_Task, "CAN_Callback_Task", 128, NULL, osPriorityNormal, NULL);
+        xTaskCreate(CAN_Callback_Task, "CAN_Callback_Task", 256, NULL, osPriorityNormal, NULL);
       }
     }
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -257,28 +254,41 @@ static void apply_uart_config_from_shm(void)
 /* 读 SHM_CONFIG->can → 算 BRP/BS1/BS2（采样点 87.5%）+ mode 映射 → CAN_Param_Change。
  * FDCAN kernel clock = PLL（PLLQ），假设 240MHz（待实测确认，错则波特率不对）。
  * 公式 Baud = FDCAN_CLK / (BRP * (1+BS1+BS2))，固定 BS1=13/BS2=2/SJW=1（16 tq，采样点 87.5%）。*/
+/* 读 SHM_CONFIG->can → 波特率 + 模式 + TX 报文格式 + RX 过滤器 */
 static void apply_can_config_from_shm(void)
 {
   can_config_t *c = &SHM_CONFIG->can;
 
-  /* mode：0=Normal, 1=Loopback, 2=Silent, 3=LB+Silent */
+  /* ── 1. 波特率和模式 ── */
   uint32_t mode = FDCAN_MODE_NORMAL;
   if (c->mode == 1) mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
   else if (c->mode == 2) mode = FDCAN_MODE_BUS_MONITORING;
   else if (c->mode == 3) mode = FDCAN_MODE_INTERNAL_LOOPBACK;
 
-  /* BRP = FDCAN_CLK / (Baud * 16)，固定 BS1=13/BS2=2/SJW=1（采样点 87.5%）*/
-  #define FDCAN_KERNEL_CLK  240000000U
+  #define FDCAN_KERNEL_CLK  120000000U   /* PLL1Q = 960MHz / PLLQ(8) = 120MHz */
   uint32_t brp = FDCAN_KERNEL_CLK / (c->baudrate * 16);
   if (brp < 1) brp = 1;
   if (brp > 512) brp = 512;
 
-  if (CAN_Param_Change(c->baudrate, brp, 13, 2, 1, mode, ENABLE) == HAL_OK) {
-    uart1_printf("[CM4] CAN reconfig OK: %lu baud, BRP=%lu mode=%u\r\n",
-                 (unsigned long)c->baudrate, (unsigned long)brp, (unsigned)c->mode);
-  } else {
+  if (CAN_Param_Change(c->baudrate, brp, 13, 2, 1, mode, ENABLE) != HAL_OK) {
     uart1_printf("[CM4] CAN reconfig FAIL\r\n");
+    return;
   }
+
+  /* ── 2. TX 报文格式（发送前初始化）── */
+  Can_ID_Type   id_type   = (c->tx_id_type == 1)    ? CAN_ID_EXTENDED : CAN_ID_STANDARD;
+  Can_Frame_Type frame_type = (c->tx_frame_type == 1) ? CAN_FRAME_REMOTE : CAN_FRAME_DATA;
+  My_CAN_Send_Single_Init(c->tx_id, id_type, frame_type, c->tx_dlc);
+
+  /* ── 3. RX 过滤器 ── */
+  Can_ID_Type filt_id_type = (c->filter_id_type == 1) ? CAN_ID_EXTENDED : CAN_ID_STANDARD;
+  CAN_Filter_Config(c->filter_mode, c->filter_id, filt_id_type, c->filter_fifo);
+
+  uart1_printf("[CM4] CAN reconfig OK: %lu baud, TX id=0x%lX %s, filter=%s\r\n",
+               (unsigned long)c->baudrate,
+               (unsigned long)c->tx_id,
+               (c->tx_id_type ? "EXT" : "STD"),
+               (c->filter_mode ? "MATCH" : "ALL"));
 }
 
 /* 读 SHM_CONFIG->i2c → My_I2C_Init 重配 I2C4。

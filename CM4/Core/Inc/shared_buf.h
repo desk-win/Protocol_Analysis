@@ -44,6 +44,16 @@ static inline int shm_pop(uint8_t *b) {
     return 1;
 }
 
+/* CM7 批量读取：读到 buf 中，最多 len 字节，返回实际读到的字节数 */
+static inline uint16_t shm_pop_buf(uint8_t *buf, uint16_t len) {
+    uint16_t rd = 0;
+    while (rd < len && SHM_RING->head != SHM_RING->tail) {
+        buf[rd++] = SHM_RING->data[SHM_RING->tail];
+        SHM_RING->tail = (uint16_t)((SHM_RING->tail + 1U) % SHM_BUF_SIZE);
+    }
+    return rd;
+}
+
 /* CM7 查询缓冲里还有多少字节没读 */
 static inline uint16_t shm_count(void) {
     int16_t n = (int16_t)SHM_RING->head - (int16_t)SHM_RING->tail;

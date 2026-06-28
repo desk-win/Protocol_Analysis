@@ -16,6 +16,7 @@
 
 #include "shared_buf.h"
 #include "shared_config.h"
+#include "usart.h"
 
 
 /************************************目前实现的功能************************************
@@ -184,8 +185,8 @@ void My_I2C_Init(I2C_Mode now_mode, uint8_t address_mode, uint8_t address_7bit, 
 	hi2c4.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;				//双地址模式，一般没有用到的
 	hi2c4.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;				//广播模式，一般不用用到
 	//当stretch为1的时候开启时钟拉伸，0的时候关闭时钟拉伸
-	// if(stretch)	hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-	// else hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_ENABLE;
+	if(stretch)	hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+	else hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_ENABLE;
 	//主机模式
 	if (now_mode == MY_I2C_MASTER) {
 		my_i2c_deploy.my_i2c_mode = MY_I2C_MASTER;
@@ -358,60 +359,57 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 	if (hi2c->Instance == hi2c4.Instance) {
 		if(TransferDirection == I2C_DIRECTION_TRANSMIT){
 			now_frame.start_tick = Get_Sys_us();			//记录start信号
-			Frame_Reset();				
+			Frame_Reset();
 			//此时从机的状态为读取
 			my_i2c_data.mode = I2C_SLAVE_RX;
 			my_i2c_data.i2c_slave_rxlen = 0;
-			//打开接收中断
-		
-			HAL_I2C_Slave_Seq_Receive_IT(hi2c, &my_i2c_data.i2c_slave_rxdata[my_i2c_data.i2c_slave_rxlen], 1, I2C_FIRST_FRAME);
-		
+			/* 一次性请求 RXDATA_LEN 字节，HAL 内部逐字节收，不经过 RxCpltCallback。
+			 * 主机发完最后一个字节后发 STOP → ListenCpltCallback → 那里结算实际长度 */
+			HAL_I2C_Slave_Seq_Receive_IT(hi2c, my_i2c_data.i2c_slave_rxdata,
+			                             RXDATA_LEN, I2C_FIRST_FRAME);
 		}
 		//如果主机要接收数据
 		if(TransferDirection == I2C_DIRECTION_RECEIVE){
 			//此时从机状态为发送
 			my_i2c_data.mode = I2C_SLAVE_TX;
-		
 			//开启发送数据中断
-			HAL_I2C_Slave_Seq_Transmit_IT(hi2c, my_i2c_data.i2c_slave_txdata, my_i2c_data.i2c_slave_txlen, I2C_FIRST_FRAME);
+			HAL_I2C_Slave_Seq_Transmit_IT(hi2c, my_i2c_data.i2c_slave_txdata,
+			                              my_i2c_data.i2c_slave_txlen, I2C_FIRST_FRAME);
 		}
 	}
 }
 
-//前面接收一个数据后会进入这个回调函数
+/* 仅当缓冲区收满 RXDATA_LEN 字节时才会回调（极少发生）。
+ * 正常情况由 ListenCpltCallback（STOP）结算实际收到的字节数。 */
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
 	if (hi2c->Instance == hi2c4.Instance) {
-		//重新开启监听模式
-		now_frame.byte_count++;				//一帧字节数加1
-		//判断是不是第一个字节
-		if(now_frame.if_first_byte == 0){
-			//如果是第一个字节记录当前时间
-			now_frame.firstdata = Get_Sys_us();
-			now_frame.if_first_byte = 1;		//表示已经接收过第一字节了
-		}
-		if(my_i2c_data.i2c_slave_rxlen < RXDATA_LEN-1){			//如果没有满
-			//每来一个数据就放入缓冲区
-			I2C_RangeBuffer_Write(my_i2c_data.i2c_slave_rxdata[my_i2c_data.i2c_slave_rxlen]);
-			//重新开启中断
-			my_i2c_data.i2c_slave_rxlen++;
-			HAL_I2C_Slave_Seq_Receive_IT(hi2c, &my_i2c_data.i2c_slave_rxdata[my_i2c_data.i2c_slave_rxlen], 1, I2C_NEXT_FRAME);
-		}
+		my_i2c_data.i2c_slave_rxlen = RXDATA_LEN;
 	}
-	
 }
 
 //接收到停止位进入这个回调函数
 void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c){
 	if (hi2c->Instance == hi2c4.Instance) {
-		//重新开启接收中断
-		HAL_I2C_EnableListen_IT(&hi2c4);
-		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-        xSemaphoreGiveFromISR(i2c_slavecallback_semaphore, &xHigherPriorityTaskWoken);
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-		
-		
-	}
+		/* 用 HAL 内部的 XferCount 计算主机实际发了多少字节 */
+		uint32_t rx_count = (uint32_t)(RXDATA_LEN - hi2c->XferCount);
+		my_i2c_data.i2c_slave_rxlen = rx_count;
 
+		/* 把收到的字节写入环形缓冲区 */
+		for (uint32_t i = 0; i < rx_count; i++) {
+			if (i == 0) {
+				now_frame.firstdata = Get_Sys_us();   // 首字节时间戳
+			}
+			I2C_RangeBuffer_Write(my_i2c_data.i2c_slave_rxdata[i]);
+		}
+		now_frame.byte_count = rx_count;
+
+		/* 重新开启监听 */
+		HAL_I2C_EnableListen_IT(&hi2c4);
+
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+		xSemaphoreGiveFromISR(i2c_slavecallback_semaphore, &xHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	}
 }
 
 /*************************************错误检测和协议分析*********************************************/
@@ -649,7 +647,8 @@ void I2C_Callback_Task(void *argument)
 				}
 
 				Frame_Analyse();
-
+				uart1_printf("%02X %02X %02X %02X\r\n",my_i2c_data.i2c_slave_rxdata[0],
+				my_i2c_data.i2c_slave_rxdata[1],my_i2c_data.i2c_slave_rxdata[2],my_i2c_data.i2c_slave_rxdata[3]);
 				shm_push(0xFD);
 				shm_push(0xDD);                    // I2C 帧标记
 				shm_push_u16(my_i2c_data.i2c_slave_rxlen);
@@ -662,6 +661,7 @@ void I2C_Callback_Task(void *argument)
 				uint8_t tempo_buffer[my_i2c_data.i2c_slave_rxlen];
 				I2C_RangeBuffer_Read(tempo_buffer, my_i2c_data.i2c_slave_rxlen);  // 修复：原 SPI_ → I2C_
 				shm_push_buf(tempo_buffer, my_i2c_data.i2c_slave_rxlen);
+				
 			}
 		}
 		vTaskDelay(pdMS_TO_TICKS(10));

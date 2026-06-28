@@ -49,6 +49,7 @@
 #include "NanoEdgeAI.h"
 #include "shared_buf.h"
 #include "shared_config.h"   /* proto_config_t / SHM_CONFIG / HSEM_ID_CONFIG（USER CODE PV 用 proto_config_t，须在 PV 前 include）*/
+#include <stdint.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -265,23 +266,24 @@ Error_Handler();
     HAL_MPU_ConfigRegion(&MPU_Shared);
   }
   
-  SHM_CONFIG->active_proto = 1;
-  SHM_CONFIG->uart.baudrate = 9600;
-  SHM_CONFIG->uart.stopbits = 1;
-  SHM_CONFIG->uart.parity = 0;
-  SHM_CONFIG->uart.databits = 8;
-  const char msg[] = {0xAA,0x23};
-    uint16_t len = 2;
-    memcpy((void *)SHM_TX_BUF, msg, len);
-    *SHM_TX_LEN = len;
-
-    SCB_CleanDCache_by_Addr((uint32_t *)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 64);
-    SCB_CleanDCache_by_Addr((uint32_t *)SHM_TX_BUF_ADDR, 258);
-    __DSB();
+  SHM_CONFIG->active_proto     = 4;
+  SHM_CONFIG->can.baudrate     = 500000;
+  SHM_CONFIG->can.mode         = 0;      // Normal
+  SHM_CONFIG->can.tx_id        = 0x123;  // 发送到 ID=0x123
+  SHM_CONFIG->can.tx_id_type   = 0;      // 标准帧
+  SHM_CONFIG->can.tx_frame_type = 0;     // 数据帧
+  SHM_CONFIG->can.tx_dlc       = 8;
+  SHM_CONFIG->can.filter_mode  = 1;      // 精准过滤
+  SHM_CONFIG->can.filter_id    = 0x321;  // 只收 ID=0x456
+  SHM_CONFIG->can.filter_id_type = 0;    // 标准帧
+  SHM_CONFIG->can.filter_fifo  = 0;      // FIFO0
+  SCB_CleanDCache_by_Addr((uint32_t *)SHM_CONFIG_ADDR, sizeof(proto_config_t) + 64);
+  SCB_CleanDCache_by_Addr((uint32_t *)SHM_TX_BUF_ADDR, 258);
+  __DSB();
   HAL_HSEM_FastTake(HSEM_ID_CONFIG);
 
-HAL_HSEM_Release(HSEM_ID_CONFIG,0);
-
+  HAL_HSEM_Release(HSEM_ID_CONFIG,0);
+  
   /* SD NAND init is deferred to TouchGFX handleTickEvent().
    * HAL_SD_Init() blocks in SDMMC_GetCmdResp1() on this platform,
    * so we init manually in the task instead.                       */

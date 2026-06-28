@@ -89,6 +89,18 @@ typedef struct {
 typedef struct {
     uint32_t baudrate;     /* 50000/125000/250000/500000/1000000 */
     uint8_t  mode;         /* 0=Normal, 1=Loopback, 2=Silent, 3=Loopback+Silent */
+
+    /* ── 发送报文格式 ── */
+    uint32_t tx_id;        /* 发送的目标 CAN ID */
+    uint8_t  tx_id_type;   /* 0=标准帧(11bit), 1=扩展帧(29bit) */
+    uint8_t  tx_frame_type;/* 0=数据帧, 1=遥控帧 */
+    uint8_t  tx_dlc;       /* 数据长度 0~8 字节 */
+
+    /* ── 接收过滤器 ── */
+    uint8_t  filter_mode;   /* 0=全通（收所有帧）, 1=精准 ID 过滤 */
+    uint32_t filter_id;     /* 过滤模式下要接收的目标 ID */
+    uint8_t  filter_id_type;/* 0=标准帧, 1=扩展帧 */
+    uint8_t  filter_fifo;   /* 0=FIFO0, 1=FIFO1 */
 } can_config_t;
 
 /* 协议配置（嵌套所有协议，active_proto 指示当前选中）*/
@@ -148,6 +160,14 @@ typedef struct {
 
 #define CAN_DEFAULT_BAUDRATE    500000U
 #define CAN_DEFAULT_MODE        0U
+#define CAN_DEFAULT_TX_ID       0x123U
+#define CAN_DEFAULT_TX_ID_TYPE  0U      /* 0=标准帧 */
+#define CAN_DEFAULT_TX_FRAME_TYPE 0U    /* 0=数据帧 */
+#define CAN_DEFAULT_TX_DLC      8U
+#define CAN_DEFAULT_FILTER_MODE  0U     /* 0=全通 */
+#define CAN_DEFAULT_FILTER_ID    0U
+#define CAN_DEFAULT_FILTER_ID_TYPE 0U
+#define CAN_DEFAULT_FILTER_FIFO  0U     /* 0=FIFO0 */
 
 /* 配置持久化 config.bin = magic + proto_config_t。
  * Apply 时覆盖写，上电 CM7 读 → HSEM 通知 CM4 按保存的配置重配。*/
@@ -174,6 +194,14 @@ static inline void shm_config_set_defaults(void)
     SHM_CONFIG->i2c.own_address     = I2C_DEFAULT_OWNADDR;
     SHM_CONFIG->can.baudrate        = CAN_DEFAULT_BAUDRATE;
     SHM_CONFIG->can.mode            = CAN_DEFAULT_MODE;
+    SHM_CONFIG->can.tx_id           = CAN_DEFAULT_TX_ID;
+    SHM_CONFIG->can.tx_id_type      = CAN_DEFAULT_TX_ID_TYPE;
+    SHM_CONFIG->can.tx_frame_type   = CAN_DEFAULT_TX_FRAME_TYPE;
+    SHM_CONFIG->can.tx_dlc          = CAN_DEFAULT_TX_DLC;
+    SHM_CONFIG->can.filter_mode     = CAN_DEFAULT_FILTER_MODE;
+    SHM_CONFIG->can.filter_id       = CAN_DEFAULT_FILTER_ID;
+    SHM_CONFIG->can.filter_id_type  = CAN_DEFAULT_FILTER_ID_TYPE;
+    SHM_CONFIG->can.filter_fifo     = CAN_DEFAULT_FILTER_FIFO;
     SHM_CONFIG->dcmi_enable         = 0U;
     SHM_CONFIG->dma_catch_enable    = 0U;
 }

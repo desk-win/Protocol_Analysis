@@ -8,6 +8,7 @@
 #include "shared_buf.h"
 #include "shared_config.h"
 #include "string.h"
+#include "usart.h"
 
 /************************************************************************************
 *收发节点：
@@ -73,19 +74,15 @@ SemaphoreHandle_t can_txcallback_semaphore = NULL;
 *   @retval uint8,0为缓冲区已经出现覆盖现象，1为正常写入
 */
 uint8_t CAN_RangeBuffer_Write(Can_Range_Buffer *rangebuffer, Can_Message_Struct *rx_mes){
-    uint32_t next_head = (rangebuffer->head + 1)%CAN_RANGER_BUFFER_LEN;
-    uint8_t return_data = 1;
+    uint32_t next_head = (rangebuffer->head + 1) % CAN_RANGER_BUFFER_LEN;
     if (next_head == rangebuffer->tail) {
-        //如果满了，环形缓冲区的尾指针向前进一位，将最老的数据覆盖
-        rangebuffer->tail = (rangebuffer->tail + 1)%CAN_RANGER_BUFFER_LEN;
-        rangebuffer->count--;
-        return_data = 0;
+        /* 缓冲满：丢弃新帧（CAN FIFO overflow 策略），不碰 tail（Task 在消费）*/
+        return 0;
     }
     rangebuffer->buffer[rangebuffer->head] = *rx_mes;
     rangebuffer->head = next_head;
     rangebuffer->count++;
-    
-    return return_data;
+    return 1;
 }
 
 /**
@@ -499,7 +496,15 @@ void HAL_FDCAN_TxEventFifoCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t TxEvent
  ******************************************************************************/
 void CAN_Callback_Task(void *argument)
 {
+    uint32_t stats_tick = 0;
     while (1) {
+        /* —— 每秒调用一次利用率统计 —— */
+        stats_tick++;
+        if (stats_tick >= 100) {   /* 100 × 10ms = 1s */
+            stats_tick = 0;
+            CAN_Statis_Task(SHM_CONFIG->can.baudrate);
+        }
+
         /* —— RX：收到新 CAN 报文 —— */
         if (xSemaphoreTake(can_rxcallback_semaphore, pdMS_TO_TICKS(10)) == pdPASS) {
             /* 一次性清空环形缓冲区中所有待处理的报文 */
@@ -520,10 +525,12 @@ void CAN_Callback_Task(void *argument)
                 shm_push((uint8_t)msg.frametype);     // 0=数据, 1=遥控
                 shm_push(dlc_len);                    // 数据字节数
                 shm_push_buf(msg.my_can_data, dlc_len); // 数据内容
+                uart1_printf("%02X %02X %02X %02X\r\n",msg.my_can_data[0],msg.my_can_data[1],
+                msg.my_can_data[2],msg.my_can_data[3]);
             }
         }
 
-        /* —— TX：M7 有待发送数据？—— */
+        /* —— TX：M7 有待发送数据 —— */
         {
             uint16_t tx_len = *SHM_TX_LEN;
             if (tx_len > 0 && tx_len <= SHM_TX_BUF_SIZE && tx_len <= 8) {

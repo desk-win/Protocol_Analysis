@@ -302,6 +302,17 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 void UART_Callback_Task(void *argument){
     //创建二值信号量，在接收回调函数里面释放
     while (1) {
+        /* 检查 M7 是否有待发送数据（主机发送模式）*/
+        {
+            uint16_t tx_len = *SHM_TX_LEN;
+            if (tx_len > 0 && tx_len <= SHM_TX_BUF_SIZE) {
+                uint8_t tx_data[SHM_TX_BUF_SIZE];
+                memcpy(tx_data, (const void*)SHM_TX_BUF, tx_len);
+                *SHM_TX_LEN = 0;  /* 标记已消费 */
+                uart1_printf("%02X %02X %02X %02X\r\n",SHM_TX_BUF[0],SHM_TX_BUF[1],SHM_TX_BUF[2],SHM_TX_BUF[3]);
+                My_UART_Send_Single(tx_data, tx_len);
+            }
+        }
         if (xSemaphoreTake(uart_rxcallback_semaphore, portMAX_DELAY) == pdPASS) {
             
             //触发接收完成通知标志
@@ -345,6 +356,7 @@ void UART_Callback_Task(void *argument){
             if_uart_rxok = 2;
             //M4将数据推送到共享环形缓冲区
             //先告诉M7包头格式
+            
             shm_push(0xFD);
             shm_push(0xAA);             //uart的帧头
             shm_push_u16(uart_analysis.rx_frame_size);      // 数据长度
@@ -367,16 +379,7 @@ void UART_Callback_Task(void *argument){
             HAL_HSEM_Release(HSEM_ID_DONE, 0);
         }
 
-        /* 检查 M7 是否有待发送数据（主机发送模式）*/
-        {
-            uint16_t tx_len = *SHM_TX_LEN;
-            if (tx_len > 0 && tx_len <= SHM_TX_BUF_SIZE) {
-                uint8_t tx_data[SHM_TX_BUF_SIZE];
-                memcpy(tx_data, (const void*)SHM_TX_BUF, tx_len);
-                *SHM_TX_LEN = 0;  /* 标记已消费 */
-                My_UART_Send_Single(tx_data, tx_len);
-            }
-        }
+        
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
