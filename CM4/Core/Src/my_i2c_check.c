@@ -610,6 +610,11 @@ void I2C_Callback_Task(void *argument)
 					SHM_STATUS->protocol_done  = 1;
 					HAL_HSEM_Take(HSEM_ID_DONE, 0);
 					HAL_HSEM_Release(HSEM_ID_DONE, 0);
+
+					/* 通知 Proto_Select → 自删除 */
+					extern TaskHandle_t proto_select_handle;
+					if (proto_select_handle) xTaskNotifyGive(proto_select_handle);
+					vTaskDelete(NULL);
 				}
 				else if (my_i2c_data.mode == I2C_RX_SIMPLE || my_i2c_data.mode == I2C_SEQ) {
 					/* 主机接收完成 → 帧分析 + 入环 + 推给 CM7 */

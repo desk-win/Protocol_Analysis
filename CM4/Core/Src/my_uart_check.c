@@ -377,6 +377,11 @@ void UART_Callback_Task(void *argument){
             SHM_STATUS->protocol_error = 0;
             HAL_HSEM_Take(HSEM_ID_DONE, 0);
             HAL_HSEM_Release(HSEM_ID_DONE, 0);
+
+            /* 通知 Proto_Select → 自删除 */
+            extern TaskHandle_t proto_select_handle;
+            if (proto_select_handle) xTaskNotifyGive(proto_select_handle);
+            vTaskDelete(NULL);
         }
 
         
